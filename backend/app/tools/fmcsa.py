@@ -1,7 +1,12 @@
-"""FMCSA QCMobile: carrier/broker authority, insurance, out-of-service.
-Live for any real MC once FMCSA_WEBKEY is set (Login.gov, free). Seeded
-sandbox brokers screen against their seeded records, labeled 'sandbox' —
-we never claim a live federal check we didn't make."""
+"""FMCSA QCMobile: carrier/broker authority, insurance, out-of-service, and
+the registered contact of record. Live for any real MC once FMCSA_WEBKEY is
+set (Login.gov, free). Seeded sandbox brokers screen against their seeded
+records, labeled 'sandbox' — we never claim a live federal check we didn't
+make.
+
+`fmcsa.contact` is deliberately a separate call: the whole point of the
+callback cross-check is that the contact details come from the registry
+*independently* of whatever the load posting claims."""
 from __future__ import annotations
 
 import httpx
@@ -78,3 +83,34 @@ async def screen(mc_number: str) -> ToolResult:
     return ToolResult(
         {"source": "unavailable", "found": False}, "cached", 0,
         f"{mc_number}: FMCSA WebKey not configured — cannot verify live (treat as unverified)")
+
+
+@tool("fmcsa.contact", scope="fmcsa.read")
+async def registered_contact(mc_number: str) -> ToolResult:
+    """The phone/email/domain on file for this MC, looked up independently of
+    the posting. A posting that lists different ones is the classic
+    double-brokering tell."""
+    seeded = await bank.get("brokers", mc_number)
+    if seeded and not seeded.get("real_mc"):
+        value = {"source": "sandbox-record", "found": True, "mc": mc_number,
+                 "name": seeded["name"], "phone": seeded.get("phone"),
+                 "email": seeded.get("email"), "domain": seeded.get("domain")}
+        return ToolResult(value, "sandbox", 0,
+                          f"{mc_number} registered contact: {seeded.get('phone')} · "
+                          f"{seeded.get('email')}")
+
+    if settings().has_fmcsa:
+        rec = await _live_lookup(mc_number)
+        if rec is None:
+            return ToolResult({"source": "qcmobile", "found": False, "mc": mc_number},
+                              "live", 0, f"{mc_number}: no registered contact on file")
+        value = {"source": "qcmobile", "found": True, "mc": mc_number,
+                 "name": rec["legal_name"], "phone": rec.get("phone"),
+                 "email": rec.get("email"), "domain": None}
+        return ToolResult(value, "live", 0,
+                          f"{mc_number} registered to {rec['legal_name']} · "
+                          f"{rec.get('phone') or 'no phone on file'}")
+
+    return ToolResult({"source": "unavailable", "found": False, "mc": mc_number},
+                      "cached", 0,
+                      f"{mc_number}: no registry contact available — cannot cross-check callback")

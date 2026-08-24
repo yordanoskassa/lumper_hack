@@ -13,7 +13,17 @@ from ..config import settings
 from .memory import bank
 from .observability import TraceEvent, hub
 
-STAGES = ["Queued", "Dispatch", "In transit", "Delivered", "Invoiced", "Factored", "Paid"]
+STAGES = ["Queued", "Dispatch", "In transit", "At dock", "Delivered", "Invoiced",
+          "Factored", "Paid"]
+
+
+def _hm(hours: float) -> str:
+    """Simulated clock, said the way a driver says it: 2h15m, not 2.25h."""
+    total = int(round(hours * 60))
+    h, m = divmod(total, 60)
+    if h and m:
+        return f"{h}h{m:02d}m"
+    return f"{h}h" if h else f"{m}m"
 
 
 class RunManager:
@@ -42,11 +52,11 @@ class RunManager:
         try:
             await coro
         except asyncio.CancelledError:
-            hub.emit(TraceEvent(run_id=run_id, agent="Yard Boss", tone="warn",
-                                msg="run cancelled by operator"))
+            hub.emit(TraceEvent(run_id=run_id, agent="YARD BOSS", agent_name="Yard Boss",
+                                tone="warn", msg="run cancelled by operator"))
         except Exception as e:  # surface crashes into the trace, never die silent
-            hub.emit(TraceEvent(run_id=run_id, agent="Yard Boss", tone="fail",
-                                msg=f"run crashed: {type(e).__name__}: {e}"))
+            hub.emit(TraceEvent(run_id=run_id, agent="YARD BOSS", agent_name="Yard Boss",
+                                tone="fail", msg=f"run crashed: {type(e).__name__}: {e}"))
             await bank.patch("runs", run_id, {"stage": "crashed"})
 
     def cancel(self, run_id: str) -> bool:
@@ -58,11 +68,16 @@ class RunManager:
 
     # ---- simulated time -------------------------------------------------
 
-    async def sleep_sim_hours(self, run_id: str, agent: str, hours: float, why: str) -> None:
-        wall = hours * settings().sim_seconds_per_hour
+    async def sleep_sim_hours(self, run_id: str, agent: str, hours: float, why: str,
+                              agent_name: str = "", floor_s: float = 0.0) -> None:
+        """Sleep `hours` of simulated clock. `floor_s` gives a stage a minimum
+        wall time so a short wait (a detention meter tick) still reads on stage
+        while a three-week payment cycle stays compressed."""
+        wall = max(hours * settings().sim_seconds_per_hour, floor_s)
         hub.emit(TraceEvent(
-            run_id=run_id, agent=agent, kind="state", tone="ok",
-            msg=f"wakeup scheduled +{hours:g}h ({why}) · compressed to {wall:.1f}s",
+            run_id=run_id, agent=agent, agent_name=agent_name or agent,
+            kind="state", tone="ok",
+            msg=f"wakeup scheduled +{_hm(hours)} ({why}) · compressed to {wall:.1f}s",
         ))
         await asyncio.sleep(wall)
 

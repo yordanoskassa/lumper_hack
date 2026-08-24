@@ -18,8 +18,9 @@ _seq = count(1)
 @dataclass
 class TraceEvent:
     run_id: str
-    agent: str            # "Scout", "Ghost", "Gateway", "Model Armor", ...
+    agent: str            # agent ID: "FINDER", "VERIFIER", "Gateway", "Model Armor"
     msg: str
+    agent_name: str = ""  # display name: "Finder", "Verifier", ... (defaults to id)
     tone: str = "ok"      # ok | pass | warn | fail | block | skip
     kind: str = "trace"   # trace | tool | policy | armor | state | chat | mail | doc
     tool: str | None = None

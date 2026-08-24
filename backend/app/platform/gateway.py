@@ -41,7 +41,8 @@ def tool(name: str, scope: str):
 
 
 async def invoke(*, run_id: str, agent_name: str, agent_key: str, token: str,
-                 tool_name: str, trace_msg: str | None = None, **kwargs) -> ToolResult:
+                 tool_name: str, trace_msg: str | None = None,
+                 tone: str = "ok", **kwargs) -> ToolResult:
     spec = TOOLS.get(tool_name)
     if spec is None:
         raise PolicyDenied(f"unknown tool '{tool_name}'")
@@ -49,9 +50,9 @@ async def invoke(*, run_id: str, agent_name: str, agent_key: str, token: str,
         identity.check_scope(token, spec["scope"])
     except identity.IdentityError as e:
         hub.emit(TraceEvent(
-            run_id=run_id, agent="Gateway", kind="policy", tone="block",
-            tool=tool_name,
-            msg=f"DENIED {agent_name} → {tool_name}: {e}",
+            run_id=run_id, agent="Gateway", agent_name="Gateway",
+            kind="policy", tone="block", tool=tool_name,
+            msg=f"DENIED {agent_key} → {tool_name}: {e}",
             data={"agent": agent_key, "scope": spec["scope"]},
         ))
         raise PolicyDenied(str(e)) from e
@@ -69,7 +70,8 @@ async def invoke(*, run_id: str, agent_name: str, agent_key: str, token: str,
     if trace_msg is not None:
         msg = trace_msg.format(detail=result.detail) if "{detail}" in trace_msg else trace_msg
         hub.emit(TraceEvent(
-            run_id=run_id, agent=agent_name, kind="tool", tool=tool_name,
+            run_id=run_id, agent=agent_key, agent_name=agent_name, tone=tone,
+            kind="tool", tool=tool_name,
             backend=result.backend, latency_ms=result.latency_ms, msg=msg,
         ))
     return result

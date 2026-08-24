@@ -43,22 +43,28 @@ class SandboxAdapter(LoadBoardAdapter):
     async def search(self, origin_city: str, radius_mi: int = 150) -> list[dict]:
         board = await bank.all("board")
         board.sort(key=lambda p: p["id"])
-        out = [dict(p) for p in board]
+        out = [dict(p) for p in board if p.get("dh", 0) <= radius_mi]
         lanes = [(p["o"], p["d"], p["mi"]) for p in board if p.get("rate")]
         brokers = [p["mc"] for p in board]
         i = 0
-        while len(out) < 200:
+        # Deadhead is what the radius actually means, so filler outside the
+        # radius is genuinely withheld — widening the search really does
+        # surface postings that were not there a moment ago.
+        while len(out) < 200 and i < 600:
             o, d, mi = lanes[i % len(lanes)]
             h = int(hashlib.sha256(f"filler-{i}".encode()).hexdigest(), 16)
             rpm = 1.05 + (h % 90) / 100.0          # 1.05–1.94 — junk by design
+            dh = 30 + h % 160
+            i += 1
+            if dh > radius_mi:
+                continue
             out.append({
                 "id": f"F-{80000 + i}", "mc": brokers[h % len(brokers)],
-                "o": o, "d": d, "mi": mi, "dh": 30 + h % 160,
+                "o": o, "d": d, "mi": mi, "dh": dh,
                 "rate": int(mi * rpm / 5) * 5, "eq": "Dry van",
                 "posted_min": 5 + h % 400, "src": ("DAT", "Truckstop", "123LB")[h % 3],
                 "filler": True, "posted_ts": time.time() - (5 + h % 400) * 60,
             })
-            i += 1
         return out
 
 
@@ -72,12 +78,13 @@ def adapter() -> LoadBoardAdapter:
 
 
 @tool("loadboard.pull", scope="loadboard.read")
-async def pull(origin_city: str) -> ToolResult:
+async def pull(origin_city: str, radius_mi: int = 150) -> ToolResult:
     ad = adapter()
-    postings = await ad.search(origin_city)
+    postings = await ad.search(origin_city, radius_mi)
     by_src: dict[str, int] = {}
     for p in postings:
         by_src[p["src"]] = by_src.get(p["src"], 0) + 1
     detail = " · ".join(f"{k} {v}" for k, v in sorted(by_src.items()))
     backend = "sandbox" if ad.name == "sandbox" else "live"
-    return ToolResult(postings, backend, 0, f"{detail} → {len(postings)} raw candidates")
+    return ToolResult(postings, backend, 0,
+                      f"{detail} → {len(postings)} raw candidates within {radius_mi} mi of {origin_city}")

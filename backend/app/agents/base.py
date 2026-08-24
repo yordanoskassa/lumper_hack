@@ -1,6 +1,10 @@
 """Base agent. Each agent is minted an Identity token scoped to exactly the
 tools its registry card declares, and every tool call it makes goes through
-the Gateway (which re-checks that scope). Agents never touch tools directly."""
+the Gateway (which re-checks that scope). Agents never touch tools directly.
+
+Trace events carry the agent ID (FINDER / VERIFIER / CLOSER / PAYDAY /
+YARD BOSS) plus its display name, so the UI can colour by identity and the
+audit log stays stable even if a display name changes."""
 from __future__ import annotations
 
 import time
@@ -30,11 +34,11 @@ class Agent:
         return self._token
 
     def say(self, run_id: str, msg: str, tone: str = "ok", **data) -> None:
-        hub.emit(TraceEvent(run_id=run_id, agent=self.name, msg=msg, tone=tone,
-                            data=data or None))
+        hub.emit(TraceEvent(run_id=run_id, agent=self.key, agent_name=self.name,
+                            msg=msg, tone=tone, data=data or None))
 
     async def call(self, run_id: str, tool_name: str, *, trace: str | None = None,
                    tone: str = "ok", **kwargs) -> ToolResult:
         return await invoke(run_id=run_id, agent_name=self.name, agent_key=self.key,
                             token=self.token, tool_name=tool_name,
-                            trace_msg=trace, **kwargs)
+                            trace_msg=trace, tone=tone, **kwargs)

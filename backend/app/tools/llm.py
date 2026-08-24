@@ -1,5 +1,10 @@
 """Gemini access. One place builds the client; every caller degrades to a
-labeled template when no key is configured so the demo never dies on stage."""
+labeled template when no key is configured so the demo never dies on stage.
+
+Thinking is switched OFF for the short prose calls. On the flash models a
+reasoning pass spends the entire `max_output_tokens` budget on thoughts and
+returns a sentence chopped in half — every agent verdict came back truncated
+until this was pinned."""
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +23,16 @@ def client():
     return _client
 
 
+def _no_thinking(types, **kwargs):
+    """Build a config with the reasoning pass disabled where the SDK/model
+    supports it, and without it where they don't."""
+    try:
+        return types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0), **kwargs)
+    except (AttributeError, TypeError, ValueError):
+        return types.GenerateContentConfig(**kwargs)
+
+
 async def generate(prompt: str, *, system: str | None = None,
                    template: str = "", max_tokens: int = 300) -> tuple[str, str]:
     """Returns (text, backend) where backend is 'live' or 'template'."""
@@ -25,8 +40,8 @@ async def generate(prompt: str, *, system: str | None = None,
     if c is None:
         return template, "template"
     from google.genai import types
-    cfg = types.GenerateContentConfig(
-        system_instruction=system, max_output_tokens=max_tokens, temperature=0.4)
+    cfg = _no_thinking(types, system_instruction=system,
+                       max_output_tokens=max_tokens, temperature=0.4)
     try:
         resp = await asyncio.wait_for(
             c.aio.models.generate_content(
@@ -50,7 +65,7 @@ async def generate_with_file(prompt: str, *, data: bytes, mime: str,
             c.aio.models.generate_content(
                 model=settings().gemini_model,
                 contents=[types.Part.from_bytes(data=data, mime_type=mime), prompt],
-                config=types.GenerateContentConfig(max_output_tokens=max_tokens, temperature=0.1),
+                config=_no_thinking(types, max_output_tokens=max_tokens, temperature=0.1),
             ),
             timeout=40,
         )
