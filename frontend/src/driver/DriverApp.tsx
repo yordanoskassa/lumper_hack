@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type DriverBoard, type DriverLoad } from "../api";
+import { api, type DriverBoard, type DriverLoad, type TraceEvent } from "../api";
 import { C, PRIMARY_BTN_H } from "../theme";
 import { CITY_COORDS, haversineMi } from "./geo";
 import { MapCanvas, type MapPin, type MapRoute } from "./MapCanvas";
@@ -15,7 +15,19 @@ const FREE_MIN = 120;
 const RATE_HR = 75; // matches the demo tenant's detention terms in data/seed.py
 const MAX_ON_SITE_MIN = 300;
 
-export function DriverApp() {
+export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
+  const root = useRef<HTMLDivElement>(null);
+  // Measured off the element, not the viewport, so the same component is correct
+  // full-screen on a laptop, in a phone browser, and inside the console's pane.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= 860));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const [screen, setScreen] = useState<Screen>("home");
   const [board, setBoard] = useState<DriverBoard | null>(null);
   const [picked, setPicked] = useState<DriverLoad | null>(null);
@@ -138,31 +150,26 @@ export function DriverApp() {
     return [here];
   }, [screen, board, picked, here]);
 
+  // One app, two shapes. Narrow: map on top, content beneath — the phone layout.
+  // Wide: the map becomes the full-height canvas and the content docks beside it.
   const mapH = screen === "home" || screen === "trip" ? 340 : screen === "loads" ? 210 : 180;
 
-  return (
-    <div style={{ position: "relative", height: "100%", background: C.dBg, color: C.dText,
-      display: "flex", flexDirection: "column", overflow: "hidden" }}>
+  const place = (
+    <div style={{ marginBottom: wide ? 22 : 0 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".1em",
+        textTransform: "uppercase", color: "#FDBA74" }}>
+        {gps ? "Live location" : "Last known"}
+      </div>
+      <div style={{ fontSize: wide ? 30 : 26, fontWeight: 600, letterSpacing: "-.035em", marginTop: 2 }}>
+        {truck?.city ?? "Joliet, IL"}
+      </div>
+    </div>
+  );
 
-      <MapCanvas pins={pins} routes={routes} focus={focus} height={mapH}
-        scanning={screen === "hunting"}
-        geofenceMi={screen === "dock" ? 40 : undefined} />
-
-      {/* the map's "you are here" readout, floating over it */}
-      {(screen === "home" || screen === "hunting") && (
-        <div style={{ position: "absolute", top: mapH - 74, left: 18, right: 18 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".1em",
-            textTransform: "uppercase", color: "#FDBA74" }}>
-            {gps ? "Live location" : "Last known"}
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-.035em", marginTop: 2 }}>
-            {truck?.city ?? "Joliet, IL"}
-          </div>
-        </div>
-      )}
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "18px 18px 22px", minHeight: 0 }}>
-        {err && (
+  const content = (
+    <>
+      {wide && (screen === "home" || screen === "hunting") && place}
+      {err && (
           <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10,
             background: "rgba(248,113,113,.12)", border: "1px solid rgba(248,113,113,.35)",
             color: "#FCA5A5", fontSize: 13 }}>
@@ -208,18 +215,90 @@ export function DriverApp() {
             setPicked(null); setPodImg(null); setDet({ active: false }); setScreen("home");
           }} />
         )}
-      </div>
+    </>
+  );
 
-      {screen === "verify" && verifying && (
-        <VerifyScan
-          broker={verifying.broker}
-          checks={checksFor(verifying)}
-          onDone={(blocked) => {
-            if (blocked) { setVerifying(null); setScreen("loads"); return; }
-            setPicked(verifying); setVerifying(null); setScreen("trip");
-          }}
-        />
+  const map = (
+    <MapCanvas pins={pins} routes={routes} focus={focus}
+      height={wide ? "100%" : mapH}
+      scanning={screen === "hunting"}
+      geofenceMi={screen === "dock" ? 40 : undefined} />
+  );
+
+  const scan = screen === "verify" && verifying && (
+    <VerifyScan
+      broker={verifying.broker}
+      checks={checksFor(verifying)}
+      onDone={(blocked) => {
+        if (blocked) { setVerifying(null); setScreen("loads"); return; }
+        setPicked(verifying); setVerifying(null); setScreen("trip");
+      }}
+    />
+  );
+
+  return (
+    <div ref={root} style={{ position: "relative", height: "100%", background: C.dBg,
+      color: C.dText, overflow: "hidden",
+      display: wide ? "grid" : "flex",
+      gridTemplateColumns: wide ? "minmax(360px, 460px) minmax(0, 1fr)" : undefined,
+      flexDirection: wide ? undefined : "column" }}>
+
+      {wide ? (
+        <>
+          <div style={{ overflowY: "auto", padding: "34px 30px 34px 34px", minHeight: 0,
+            borderRight: `1px solid ${C.dBorder}` }}>
+            {content}
+          </div>
+          <div style={{ position: "relative", minWidth: 0 }}>
+            {map}
+            {trace && trace.length > 0 && <TracePeek trace={trace} />}
+          </div>
+        </>
+      ) : (
+        <>
+          {map}
+          {(screen === "home" || screen === "hunting") && (
+            <div style={{ position: "absolute", top: mapH - 74, left: 18, right: 18 }}>
+              {place}
+            </div>
+          )}
+          <div style={{ flex: 1, overflowY: "auto", padding: "18px 18px 22px", minHeight: 0 }}>
+            {content}
+          </div>
+        </>
       )}
+
+      {scan}
+    </div>
+  );
+}
+
+/** On a wide screen there is room to show the work behind the answer, so the
+ *  agents' own trace floats over the map. A phone gets the outcome only. */
+function TracePeek({ trace }: { trace: TraceEvent[] }) {
+  const last = trace.slice(-7);
+  return (
+    <div style={{
+      // clears the console's floating chat dock, which owns the bottom-right corner
+      position: "absolute", right: 18, bottom: 78, width: 380, maxWidth: "calc(100% - 36px)",
+      background: "rgba(11,11,14,.86)", backdropFilter: "blur(14px)",
+      border: "1px solid rgba(255,255,255,.10)", borderRadius: 14, padding: "13px 15px",
+      pointerEvents: "none",
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".14em",
+        textTransform: "uppercase", color: "#34D399", marginBottom: 9 }}>
+        Agents working
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {last.map((e, i) => (
+          <div key={i} className="mono" style={{
+            fontSize: 10.5, color: i === last.length - 1 ? "#FAFAFA" : "#8A8A86",
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            <span style={{ color: "#F97316" }}>{e.agent ?? "—"}</span>{"  "}{e.msg ?? e.tool ?? ""}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

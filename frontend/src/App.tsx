@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Desk as DeskData, type TraceEvent } from "./api";
-import { C } from "./theme";
+import { C, TAP_MIN } from "./theme";
 import { useStream } from "./useStream";
 import { Demo } from "./views/Demo";
 import { Desk } from "./views/Desk";
@@ -12,12 +12,12 @@ import { Chat } from "./components/Chat";
 
 type View = "demo" | "driver" | "desk" | "fleet" | "registry";
 
-const NAV: { key: View; label: string; d: string }[] = [
-  { key: "demo", label: "Guided demo", d: "M5 3l8 5-8 5z" },
-  { key: "driver", label: "Driver app", d: "M4.5 1.5h7v13h-7zM6.8 3.2h2.4" },
-  { key: "desk", label: "Live desk", d: "M1 4h8v7H1zM9 7h3l2 2v2H9zM4 13a1.3 1.3 0 100-2.6A1.3 1.3 0 004 13zM11.5 13a1.3 1.3 0 100-2.6 1.3 1.3 0 000 2.6" },
-  { key: "fleet", label: "Fleet", d: "M6 7a2.2 2.2 0 100-4.4A2.2 2.2 0 006 7zM2 14c0-2.2 1.8-3.5 4-3.5s4 1.3 4 3.5M11 4.5a2 2 0 010 4M12 14c0-1.8-.6-2.7-1.5-3.3" },
-  { key: "registry", label: "Registry", d: "M4 2h5l3 3v9H4zM9 2v3h3M6 8h4M6 11h4" },
+const NAV: { key: View; label: string; short: string; d: string }[] = [
+  { key: "demo", label: "Guided demo", short: "Story", d: "M5 3l8 5-8 5z" },
+  { key: "driver", label: "Driver app", short: "Drive", d: "M4.5 1.5h7v13h-7zM6.8 3.2h2.4" },
+  { key: "desk", label: "Live desk", short: "Desk", d: "M1 4h8v7H1zM9 7h3l2 2v2H9zM4 13a1.3 1.3 0 100-2.6A1.3 1.3 0 004 13zM11.5 13a1.3 1.3 0 100-2.6 1.3 1.3 0 000 2.6" },
+  { key: "fleet", label: "Fleet", short: "Fleet", d: "M6 7a2.2 2.2 0 100-4.4A2.2 2.2 0 006 7zM2 14c0-2.2 1.8-3.5 4-3.5s4 1.3 4 3.5M11 4.5a2 2 0 010 4M12 14c0-1.8-.6-2.7-1.5-3.3" },
+  { key: "registry", label: "Registry", short: "Agents", d: "M4 2h5l3 3v9H4zM9 2v3h3M6 8h4M6 11h4" },
 ];
 
 const ROSTER = ["Yard Boss", "Finder", "Verifier", "Closer", "Payday"];
@@ -32,8 +32,21 @@ function standalone(): boolean {
   );
 }
 
+/** One breakpoint for the whole product. Below it the console chrome is wrong —
+ *  a 232px sidebar on a 375px screen leaves nothing for the app itself — so the
+ *  shell becomes a bottom tab bar and the driver app takes the screen. */
+const NARROW_PX = 860;
+
 export default function App() {
-  const [view, setView] = useState<View>("demo");
+  const [narrow, setNarrow] = useState(() => window.innerWidth < NARROW_PX);
+  useEffect(() => {
+    const on = () => setNarrow(window.innerWidth < NARROW_PX);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+
+  const [view, setView] = useState<View>(() =>
+    window.innerWidth < NARROW_PX ? "driver" : "demo");
   const [deskFromStream, setDeskFromStream] = useState<DeskData | null>(null);
   const [chatFeed, setChatFeed] = useState<{ role: string; text: string }[]>([]);
   const [tenant, setTenant] = useState<any>(null);
@@ -64,7 +77,49 @@ export default function App() {
   if (standalone()) {
     return (
       <div style={{ height: "100dvh", background: C.dBg }}>
-        <DriverApp />
+        <DriverApp trace={trace} />
+      </div>
+    );
+  }
+
+  // Phone browser: same views, no sidebar, thumb-reachable nav at the bottom.
+  if (narrow) {
+    const dark = view === "driver";
+    return (
+      <div style={{ height: "100dvh", display: "flex", flexDirection: "column",
+        background: dark ? C.dBg : C.bg, overflow: "hidden" }}>
+        <div style={{ flex: 1, position: "relative", minHeight: 0, overflowY: dark ? "hidden" : "auto" }}>
+          {view === "driver" && <DriverApp trace={trace} />}
+          {view === "demo" && <Demo trace={trace} connected={connected} />}
+          {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
+          {view === "fleet" && <Fleet trace={trace} />}
+          {view === "registry" && <Registry />}
+        </div>
+        <nav style={{
+          display: "grid", gridTemplateColumns: `repeat(${NAV.length}, 1fr)`,
+          borderTop: `1px solid ${dark ? C.dBorder : C.border2}`,
+          background: dark ? C.dCard : "#fff",
+          paddingBottom: "env(safe-area-inset-bottom)", flex: "none",
+        }}>
+          {NAV.map((n) => {
+            const on = view === n.key;
+            return (
+              <button key={n.key} onClick={() => setView(n.key)} style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                padding: "10px 2px 9px", minHeight: TAP_MIN,
+                color: on ? C.orange : dark ? C.dSub : C.muted,
+                fontSize: 10, fontWeight: on ? 600 : 500,
+              }}>
+                <svg width="19" height="19" viewBox="0 0 16 16" fill="none"
+                  stroke={on ? C.orange : dark ? C.dSub : C.muted}
+                  strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={n.d} />
+                </svg>
+                {n.short}
+              </button>
+            );
+          })}
+        </nav>
       </div>
     );
   }
@@ -137,6 +192,7 @@ export default function App() {
       <div style={{ overflowY: "auto", minWidth: 0, position: "relative" }}>
         {view === "demo" && <Demo trace={trace} connected={connected} />}
         {view === "driver" && <Driver trace={trace} connected={connected} />}
+        {/* the driver view owns its whole pane; the desk chat dock would sit on top of it */}
         {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
         {view === "fleet" && <Fleet trace={trace} />}
         {view === "registry" && <Registry />}

@@ -97,7 +97,7 @@ export function MapCanvas({
   /** Draw a dock radius (miles) around the first "dock" pin. */
   geofenceMi?: number;
   scanning?: boolean;
-  height?: number;
+  height?: number | string;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [aspect, setAspect] = useState(MAP_W / MAP_H);
