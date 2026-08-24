@@ -44,10 +44,11 @@ export function Btn({ children, onClick, kind = "ghost", size = "sm", disabled, 
     : { fontSize: 12.5, fontWeight: 500, padding: "8px 13px", borderRadius: 8, whiteSpace: "nowrap" };
   // Colour-only motion, per lumper DESIGN.md — no lift, no scale.
   const kinds: Record<string, CSSProperties> = {
-    primary: { background: disabled ? C.faint : C.orange, color: disabled ? C.muted : (driver ? C.onAccent : "#fff"), border: "1px solid transparent" },
-    neutral: { background: disabled ? "#fff" : C.black, color: disabled ? C.muted : "#fff", border: `1px solid ${disabled ? C.border : C.black}` },
-    ghost: { background: "#fff", color: C.black, border: `1px solid ${C.border}` },
-    danger: { background: "#fff", color: "#DC2626", border: "1px solid #FECACA" },
+    // Orange always carries near-black, at any size — 7.2:1 against 2.9:1.
+    primary: { background: disabled ? C.faint : C.orange, color: disabled ? C.muted : C.onAccent, border: "1px solid transparent" },
+    neutral: { background: disabled ? C.faint : C.black, color: disabled ? C.muted : C.ink, border: `1px solid ${C.border}` },
+    ghost: { background: "rgba(255,255,255,.055)", color: C.ink, border: "1px solid transparent" },
+    danger: { background: "rgba(248,113,113,.12)", color: "#F87171", border: "1px solid rgba(248,113,113,.3)" },
   };
   return (
     <button onClick={disabled ? undefined : onClick} disabled={disabled}

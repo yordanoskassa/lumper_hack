@@ -46,7 +46,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, flex: 1 }}>
       <div style={{ padding: "12px 15px", display: "flex", alignItems: "center", gap: 9, borderBottom: `1px solid ${C.hair}` }}>
-        <div style={{ width: 22, height: 22, borderRadius: 6, background: C.black, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600 }}>YB</div>
+        <div style={{ width: 22, height: 22, borderRadius: 6, background: C.faint, color: C.ink, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600 }}>YB</div>
         <div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Yard Boss</div>
           <div style={{ fontSize: 10.5, color: C.muted }}>Orchestrator · Gemini function calling</div>
@@ -59,7 +59,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
             <div style={{
               maxWidth: "86%", fontSize: 12.5, lineHeight: 1.5, padding: "8px 11px", borderRadius: 10,
               background: m.role === "user" ? C.black : C.faint,
-              color: m.role === "user" ? "#fff" : C.body,
+              color: m.role === "user" ? C.ink : C.body,
               border: m.role === "user" ? "none" : `1px solid ${C.border}`,
               whiteSpace: "pre-wrap",
             }}>
@@ -72,7 +72,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
 
       <div style={{ padding: "8px 11px", display: "flex", gap: 6, flexWrap: "wrap", borderTop: `1px solid ${C.hair}` }}>
         {SUGGESTIONS.map((s) => (
-          <button key={s} onClick={() => send(s)} disabled={busy} style={{ fontSize: 11, color: C.body, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 10px" }}>
+          <button key={s} onClick={() => send(s)} disabled={busy} style={{ fontSize: 11, color: C.body, background: "rgba(255,255,255,.055)", border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 10px" }}>
             {s}
           </button>
         ))}
@@ -84,9 +84,9 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send(input)}
           placeholder="Tell the fleet what to do…"
-          style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", fontSize: 12.5, background: "#fff" }}
+          style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", fontSize: 12.5, background: C.faint, color: C.ink }}
         />
-        <button onClick={() => send(input)} disabled={busy} style={{ background: C.black, color: "#fff", borderRadius: 8, padding: "0 15px", fontSize: 12.5, fontWeight: 500 }}>
+        <button onClick={() => send(input)} disabled={busy} style={{ background: busy ? C.faint : C.orange, color: busy ? C.muted : C.onAccent, borderRadius: 8, padding: "0 15px", fontSize: 12.5, fontWeight: 600 }}>
           Send
         </button>
       </div>

@@ -1,6 +1,7 @@
 *{box-sizing:border-box;}
-html,body,#root{margin:0;padding:0;height:100%;background:#F7F7F6;}
-body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;color:#0A0A0A;-webkit-font-smoothing:antialiased;letter-spacing:-.011em;}
+html,body,#root{margin:0;padding:0;height:100%;background:#1A1A1D;}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;color:#FAFAFA;-webkit-font-smoothing:antialiased;letter-spacing:-.011em;}
+:root{color-scheme:dark;}
 a{color:#EA580C;text-decoration:none;}a:hover{color:#C2410C;}
 input,button,textarea{font-family:inherit;}
 input:focus,textarea:focus{outline:2px solid #FED7AA;outline-offset:-1px;}
@@ -22,5 +23,5 @@ button{cursor:pointer;border:none;background:none;}
 .scan-row{animation:scanRow .34s ease-out both;}
 .blink{animation:blink 1s steps(1,end) infinite;}
 ::-webkit-scrollbar{width:9px;height:9px;}
-::-webkit-scrollbar-thumb{background:#E7E5E4;border-radius:5px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:5px;}
 ::-webkit-scrollbar-track{background:transparent;}

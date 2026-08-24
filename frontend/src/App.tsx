@@ -94,11 +94,37 @@ export default function App() {
           {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
           {view === "fleet" && <Fleet trace={trace} />}
           {view === "registry" && <Registry />}
+
+          {/* Yard Boss has to be reachable from the cab too, so it opens as a
+              sheet over whatever view is up rather than costing a sixth tab. */}
+          {chatOpen ? (
+            <div style={{ position: "absolute", inset: 0, zIndex: 60, background: C.bg,
+              display: "flex", flexDirection: "column", padding: 12 }}>
+              <button onClick={() => setChatOpen(false)} style={{
+                alignSelf: "flex-end", minHeight: 44, padding: "0 12px",
+                fontSize: 14, color: C.sub,
+              }}>
+                Close ✕
+              </button>
+              <Chat chatFeed={chatFeed} onRoute={() => setChatOpen(false)} />
+            </div>
+          ) : (
+            <button onClick={() => setChatOpen(true)} aria-label="Ask Yard Boss" style={{
+              position: "absolute", right: 16, bottom: 16, zIndex: 50,
+              display: "flex", alignItems: "center", gap: 8, height: 52, padding: "0 18px",
+              borderRadius: 999, background: C.orange, color: C.onAccent,
+              fontSize: 14.5, fontWeight: 600,
+              boxShadow: "0 10px 28px rgba(0,0,0,.45)",
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.onAccent }} />
+              Yard Boss
+            </button>
+          )}
         </div>
         <nav style={{
           display: "grid", gridTemplateColumns: `repeat(${NAV.length}, 1fr)`,
           borderTop: `1px solid ${dark ? C.dBorder : C.border2}`,
-          background: dark ? C.dCard : "#fff",
+          background: C.dCard,
           paddingBottom: "env(safe-area-inset-bottom)", flex: "none",
         }}>
           {NAV.map((n) => {
@@ -127,9 +153,9 @@ export default function App() {
   return (
     <div style={{ height: "100vh", display: "grid", gridTemplateColumns: "232px minmax(0,1fr)", background: C.bg, overflow: "hidden" }}>
       {/* SIDEBAR */}
-      <div style={{ background: "#fff", borderRight: `1px solid ${C.border2}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+      <div style={{ background: C.card, borderRight: `1px solid ${C.border2}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "15px 14px 13px" }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: C.black, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 14 }}>L</div>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: C.ink, color: C.dBg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 14 }}>L</div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 15, letterSpacing: "-.015em" }}>Sentinel</div>
             <div style={{ fontSize: 10.5, color: C.muted }}>Autonomous freight desk</div>
@@ -142,9 +168,9 @@ export default function App() {
             <button key={n.key} onClick={() => setView(n.key)} style={{
               display: "flex", alignItems: "center", gap: 10, padding: "7px 9px", borderRadius: 8, textAlign: "left",
               fontSize: 13.5, fontWeight: view === n.key ? 600 : 400,
-              color: view === n.key ? C.orangeDk : C.body, background: view === n.key ? "#FFF7ED" : "transparent",
+              color: view === n.key ? C.onAccent : C.body, background: view === n.key ? C.orange : "transparent",
             }}>
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={view === n.key ? C.orange : C.muted} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={n.d} /></svg>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke={view === n.key ? C.onAccent : C.muted} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d={n.d} /></svg>
               {n.label}
             </button>
           ))}
@@ -205,7 +231,7 @@ export default function App() {
               <Chat chatFeed={chatFeed} onRoute={() => { if (view === "registry" || view === "fleet") setView("desk"); }} />
             </div>
           ) : (
-            <button onClick={() => setChatOpen(true)} style={{ display: "flex", alignItems: "center", gap: 9, background: C.black, color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 13, fontWeight: 500, boxShadow: "0 8px 24px rgba(0,0,0,.18)" }}>
+            <button onClick={() => setChatOpen(true)} style={{ display: "flex", alignItems: "center", gap: 9, background: C.orange, color: C.onAccent, borderRadius: 999, padding: "12px 18px", fontSize: 13, fontWeight: 500, boxShadow: "0 8px 24px rgba(0,0,0,.18)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#F97316" }} /> Ask Yard Boss
             </button>
           )}
