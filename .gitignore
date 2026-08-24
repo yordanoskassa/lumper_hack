@@ -13,3 +13,4 @@ backend/runtime/
 node_modules/
 frontend/dist/
 .DS_Store
+frontend/tsconfig.tsbuildinfo

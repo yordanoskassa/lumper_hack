@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/theme.ts","./src/usestream.ts","./src/components/chat.tsx","./src/components/loopring.tsx","./src/components/trace.tsx","./src/components/ui.tsx","./src/views/demo.tsx","./src/views/desk.tsx","./src/views/fleet.tsx","./src/views/registry.tsx"],"version":"5.7.3"}
