@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type DriverBoard, type DriverLoad, type TraceEvent } from "../api";
-import { C, PRIMARY_BTN_H } from "../theme";
+import { Camera, Check, MapPin, X } from "lucide-react";
+import { api, type DriverBoard, type DriverLoad, type TraceEvent } from "@/api";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { CITY_COORDS, haversineMi } from "./geo";
-import { MapCanvas, type MapPin, type MapRoute } from "./MapCanvas";
+import { MapCanvas, type MapPin as Pin, type MapRoute } from "./MapCanvas";
 import { DetentionCard, type DetentionState } from "./DetentionCard";
-import { VerifyScan, type Check } from "./VerifyScan";
+import { VerifyScan, type Check as ScanCheck } from "./VerifyScan";
 
 type Screen = "home" | "hunting" | "loads" | "verify" | "trip" | "dock" | "pod" | "paid";
 
@@ -16,18 +18,6 @@ const RATE_HR = 75; // matches the demo tenant's detention terms in data/seed.py
 const MAX_ON_SITE_MIN = 300;
 
 export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
-  const root = useRef<HTMLDivElement>(null);
-  // Measured off the element, not the viewport, so the same component is correct
-  // full-screen on a laptop, in a phone browser, and inside the console's pane.
-  const [wide, setWide] = useState(false);
-  useEffect(() => {
-    const el = root.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= 860));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   const [screen, setScreen] = useState<Screen>("home");
   const [board, setBoard] = useState<DriverBoard | null>(null);
   const [picked, setPicked] = useState<DriverLoad | null>(null);
@@ -50,7 +40,6 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
 
   const truck = board?.truck;
   const here: [number, number] = gps ?? (truck ? [truck.lat, truck.lng] : [41.525, -88.0834]);
-  const hereLabel = gps ? "You are here" : truck?.city ?? "Joliet IL";
 
   async function hunt() {
     setErr(null);
@@ -78,10 +67,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
       } catch { /* fall through to the local clock */ }
       // Capped: if someone leaves this screen open mid-demo the meter must not
       // drift into numbers that dwarf the load itself and read as fake.
-      const onSite = Math.min(
-        MAX_ON_SITE_MIN,
-        ((Date.now() - started) / 1000) * SIM_MIN_PER_TICK,
-      );
+      const onSite = Math.min(MAX_ON_SITE_MIN, ((Date.now() - started) / 1000) * SIM_MIN_PER_TICK);
       const billable = Math.max(0, onSite - FREE_MIN);
       const timeline: DetentionState["timeline"] = [
         { ts: 0, label: `Arrived at ${picked.dest}. Your location was recorded.`, kind: "ok" },
@@ -111,8 +97,10 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
     return () => { alive = false; clearInterval(t); };
   }, [screen, picked]);
 
-  const pins = useMemo<MapPin[]>(() => {
-    const out: MapPin[] = [{ lat: here[0], lng: here[1], kind: "you", label: hereLabel }];
+  const onTrip = screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
+
+  const pins = useMemo<Pin[]>(() => {
+    const out: Pin[] = [{ lat: here[0], lng: here[1], kind: "you", label: truck?.city ?? "You" }];
     if (screen === "loads" && board) {
       for (const l of board.loads.slice(0, 8)) {
         out.push({
@@ -121,16 +109,12 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         });
       }
     }
-    if ((screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid") && picked) {
-      out.push({ lat: picked.dest_lat, lng: picked.dest_lng, kind: "dock", label: picked.dest });
-    }
+    if (onTrip && picked) out.push({ lat: picked.dest_lat, lng: picked.dest_lng, kind: "dock", label: picked.dest });
     return out;
-  }, [screen, board, picked, here, hereLabel]);
+  }, [screen, board, picked, here, truck, onTrip]);
 
   const routes = useMemo<MapRoute[]>(() => {
-    if (screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid") {
-      return picked ? [{ from: here, to: [picked.dest_lat, picked.dest_lng], tone: "active" as const }] : [];
-    }
+    if (onTrip) return picked ? [{ from: here, to: [picked.dest_lat, picked.dest_lng], tone: "active" }] : [];
     if (screen === "loads" && board) {
       return board.loads.slice(0, 8).map((l) => ({
         from: [l.origin_lat, l.origin_lng] as [number, number],
@@ -139,40 +123,43 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
       }));
     }
     return [];
-  }, [screen, board, picked, here]);
+  }, [screen, board, picked, here, onTrip]);
 
   const focus = useMemo<[number, number][] | undefined>(() => {
     if (screen === "home" || screen === "hunting") return [here];
-    if (picked && screen !== "loads") return [here, [picked.dest_lat, picked.dest_lng]];
+    if (picked && onTrip) return [here, [picked.dest_lat, picked.dest_lng]];
     if (board?.loads.length) {
       return [here, ...board.loads.slice(0, 8).map((l) => [l.dest_lat, l.dest_lng] as [number, number])];
     }
     return [here];
-  }, [screen, board, picked, here]);
+  }, [screen, board, picked, here, onTrip]);
 
-  // One app, two shapes. Narrow: map on top, content beneath — the phone layout.
-  // Wide: the map becomes the full-height canvas and the content docks beside it.
-  const mapH = screen === "home" || screen === "trip" ? 340 : screen === "loads" ? 210 : 180;
+  return (
+    // Phone: map on top, content under it. Desktop: content docks left and the
+    // map becomes the full-height canvas. Pure breakpoints — no measuring.
+    <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
+      <div className="relative h-[38vh] max-h-95 min-h-60 shrink-0 lg:order-2 lg:h-full lg:max-h-none">
+        <MapCanvas pins={pins} routes={routes} focus={focus}
+          scanning={screen === "hunting"}
+          geofenceMi={screen === "dock" ? 40 : undefined} />
 
-  const place = (
-    <div style={{ marginBottom: wide ? 22 : 0 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".1em",
-        textTransform: "uppercase", color: "#FDBA74" }}>
-        {gps ? "Live location" : "Last known"}
+        {(screen === "home" || screen === "hunting") && (
+          <div className="absolute inset-x-4 bottom-4 lg:hidden">
+            <Place gps={!!gps} city={truck?.city} />
+          </div>
+        )}
+        {trace && trace.length > 0 && <TracePeek trace={trace} />}
       </div>
-      <div style={{ fontSize: wide ? 30 : 26, fontWeight: 600, letterSpacing: "-.035em", marginTop: 2 }}>
-        {truck?.city ?? "Joliet, IL"}
-      </div>
-    </div>
-  );
 
-  const content = (
-    <>
-      {wide && (screen === "home" || screen === "hunting") && place}
-      {err && (
-          <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10,
-            background: "rgba(248,113,113,.12)", border: "1px solid rgba(248,113,113,.35)",
-            color: "#FCA5A5", fontSize: 13 }}>
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-6 lg:order-1 lg:border-r lg:border-border lg:p-8">
+        {(screen === "home" || screen === "hunting") && (
+          <div className="mb-5 hidden lg:block">
+            <Place gps={!!gps} city={truck?.city} big />
+          </div>
+        )}
+
+        {err && (
+          <div className="mb-4 rounded-lg border border-bad/35 bg-bad/12 px-4 py-3 text-[13px] text-bad">
             Can't reach the desk — {err}
           </div>
         )}
@@ -191,16 +178,16 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         {screen === "dock" && picked && (
           <>
             <DetentionCard d={det} />
-            <BigBtn onClick={() => setScreen("pod")} style={{ marginTop: 16 }}>
+            <Button size="cab" className="mt-4" onClick={() => setScreen("pod")}>
               I'm unloaded — take the paperwork
-            </BigBtn>
+            </Button>
           </>
         )}
         {screen === "pod" && picked && (
           <Pod
             img={podImg}
             fileRef={fileRef}
-            onPick={(b64) => setPodImg(b64)}
+            onPick={setPodImg}
             onSend={async () => {
               try {
                 await api.depart(picked.id, here[0], here[1]);
@@ -215,96 +202,37 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
             setPicked(null); setPodImg(null); setDet({ active: false }); setScreen("home");
           }} />
         )}
-    </>
-  );
+      </div>
 
-  const map = (
-    <MapCanvas pins={pins} routes={routes} focus={focus}
-      height={wide ? "100%" : mapH}
-      scanning={screen === "hunting"}
-      geofenceMi={screen === "dock" ? 40 : undefined} />
-  );
-
-  const scan = screen === "verify" && verifying && (
-    <VerifyScan
-      broker={verifying.broker}
-      checks={checksFor(verifying)}
-      onDone={(blocked) => {
-        if (blocked) { setVerifying(null); setScreen("loads"); return; }
-        setPicked(verifying); setVerifying(null); setScreen("trip");
-      }}
-    />
-  );
-
-  return (
-    <div ref={root} style={{ position: "relative", height: "100%", background: C.dBg,
-      color: C.dText, overflow: "hidden",
-      display: wide ? "grid" : "flex",
-      gridTemplateColumns: wide ? "minmax(360px, 460px) minmax(0, 1fr)" : undefined,
-      flexDirection: wide ? undefined : "column" }}>
-
-      {wide ? (
-        <>
-          <div style={{ overflowY: "auto", padding: "34px 30px 34px 34px", minHeight: 0,
-            borderRight: `1px solid ${C.dBorder}` }}>
-            {content}
-          </div>
-          <div style={{ position: "relative", minWidth: 0 }}>
-            {map}
-            {trace && trace.length > 0 && <TracePeek trace={trace} />}
-          </div>
-        </>
-      ) : (
-        <>
-          {map}
-          {(screen === "home" || screen === "hunting") && (
-            <div style={{ position: "absolute", top: mapH - 74, left: 18, right: 18 }}>
-              {place}
-            </div>
-          )}
-          <div style={{ flex: 1, overflowY: "auto", padding: "18px 18px 22px", minHeight: 0 }}>
-            {content}
-          </div>
-        </>
+      {screen === "verify" && verifying && (
+        <VerifyScan
+          broker={verifying.broker}
+          checks={checksFor(verifying)}
+          onDone={(blocked) => {
+            if (blocked) { setVerifying(null); setScreen("loads"); return; }
+            setPicked(verifying); setVerifying(null); setScreen("trip");
+          }}
+        />
       )}
-
-      {scan}
     </div>
   );
 }
 
-/** On a wide screen there is room to show the work behind the answer, so the
- *  agents' own trace floats over the map. A phone gets the outcome only. */
-function TracePeek({ trace }: { trace: TraceEvent[] }) {
-  const last = trace.slice(-7);
+function Place({ gps, city, big }: { gps: boolean; city?: string; big?: boolean }) {
   return (
-    <div style={{
-      // clears the console's floating chat dock, which owns the bottom-right corner
-      position: "absolute", right: 18, bottom: 78, width: 380, maxWidth: "calc(100% - 36px)",
-      background: "rgba(11,11,14,.86)", backdropFilter: "blur(14px)",
-      border: "1px solid rgba(255,255,255,.10)", borderRadius: 14, padding: "13px 15px",
-      pointerEvents: "none",
-    }}>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".14em",
-        textTransform: "uppercase", color: "#34D399", marginBottom: 9 }}>
-        Agents working
+    <div>
+      <div className="text-[11px] font-semibold tracking-[0.1em] text-primary/90 uppercase">
+        {gps ? "Live location" : "Last known"}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {last.map((e, i) => (
-          <div key={i} className="mono" style={{
-            fontSize: 10.5, color: i === last.length - 1 ? "#FAFAFA" : "#8A8A86",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}>
-            <span style={{ color: "#F97316" }}>{e.agent ?? "—"}</span>{"  "}{e.msg ?? e.tool ?? ""}
-          </div>
-        ))}
+      <div className={cn("mt-0.5 font-semibold tracking-[-0.035em]", big ? "text-3xl" : "text-2xl")}>
+        {city ?? "Joliet, IL"}
       </div>
     </div>
   );
 }
 
 /** Turn the backend's verdict into the five questions a bystander would ask. */
-function checksFor(l: DriverLoad): Check[] {
+function checksFor(l: DriverLoad): ScanCheck[] {
   const bad = l.blocked;
   return [
     { q: "Is this a real company?", detail: "Federal motor carrier registry (FMCSA)",
@@ -313,8 +241,7 @@ function checksFor(l: DriverLoad): Check[] {
     { q: "How old is their website?", detail: "Domain registration record",
       verdict: bad ? "fail" : "pass",
       found: bad ? "Registered 11 days ago" : undefined },
-    { q: "Does their phone number match the registry?",
-      detail: "Load posting vs. federal record",
+    { q: "Does their phone number match the registry?", detail: "Load posting vs. federal record",
       verdict: bad ? "fail" : "pass",
       found: bad ? "Posting says 312-555-0142 · registry says 312-555-0198" : undefined },
     { q: "Have they paid other drivers?", detail: "Payment history on this lane",
@@ -329,13 +256,13 @@ function checksFor(l: DriverLoad): Check[] {
 function Home({ onHunt, driver }: { onHunt: () => void; driver?: string }) {
   return (
     <>
-      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-.03em", lineHeight: 1.25 }}>
+      <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.03em] lg:text-2xl">
         Your truck is empty{driver ? `, ${driver.split(" ").pop()}` : ""}.
-      </div>
-      <div style={{ fontSize: 15, color: C.dSub, marginTop: 8, lineHeight: 1.45 }}>
+      </h1>
+      <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
         Tap once. We check every load for you before you ever see it.
-      </div>
-      <BigBtn onClick={onHunt} style={{ marginTop: 22 }}>Find me a load</BigBtn>
+      </p>
+      <Button size="cab" className="mt-6" onClick={onHunt}>Find me a load</Button>
     </>
   );
 }
@@ -352,12 +279,11 @@ function Hunting() {
     return () => clearInterval(t);
   }, []);
   return (
-    <div style={{ paddingTop: 6 }}>
+    <div className="pt-1">
       {lines.slice(0, i + 1).map((l, n) => (
-        <div key={n} className="scan-row" style={{ display: "flex", gap: 10, alignItems: "center",
-          padding: "9px 0", fontSize: 14.5, color: n === i ? C.dText : C.dSub }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%",
-            background: n === i ? "#34D399" : "#5C5C58" }} />
+        <div key={n} className={cn("scan-row flex items-center gap-2.5 py-2 text-[14.5px]",
+          n === i ? "text-foreground" : "text-muted-foreground")}>
+          <span className={cn("size-1.5 shrink-0 rounded-full", n === i ? "bg-ok" : "bg-muted-foreground/50")} />
           {l}
         </div>
       ))}
@@ -370,17 +296,14 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
   const bad = board.loads.filter((l) => l.blocked);
   return (
     <>
-      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-.03em" }}>
+      <h1 className="text-xl font-semibold tracking-[-0.03em]">
         {good.length} load{good.length === 1 ? "" : "s"} worth taking
-      </div>
+      </h1>
       {!!bad.length && (
-        <div style={{ fontSize: 14, color: "#FCA5A5", marginTop: 6 }}>
-          We threw out {bad.length} you should never see.
-        </div>
+        <p className="mt-1.5 text-sm text-bad">We threw out {bad.length} you should never see.</p>
       )}
-      <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        {good.map((l) => <LoadCard key={l.id} l={l} onPick={onPick} />)}
-        {bad.map((l) => <LoadCard key={l.id} l={l} onPick={onPick} />)}
+      <div className="mt-4 flex flex-col gap-3">
+        {[...good, ...bad].map((l) => <LoadCard key={l.id} l={l} onPick={onPick} />)}
       </div>
     </>
   );
@@ -388,48 +311,44 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
 
 /** Three states, never two: a REVIEW load dressed as "SAFE" with a green tick is
  *  the one lie this screen must not tell. */
-const VERDICT_UI = {
-  CLEAR: { label: "CHECKED · SAFE", fg: "#34D399", tick: "✓" },
-  REVIEW: { label: "CHECKED · ONE CATCH", fg: "#F59E0B", tick: "!" },
-  BLOCKED: { label: "BLOCKED", fg: "#F87171", tick: "✕" },
+const VERDICT = {
+  CLEAR: { label: "CHECKED · SAFE", cls: "text-ok bg-ok/15", Icon: Check },
+  REVIEW: { label: "CHECKED · ONE CATCH", cls: "text-warn bg-warn/15", Icon: MapPin },
+  BLOCKED: { label: "BLOCKED", cls: "text-bad bg-bad/15", Icon: X },
 } as const;
 
 function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => void }) {
-  const blocked = l.blocked;
-  const v = VERDICT_UI[blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
+  const v = VERDICT[l.blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
+  const tone = l.blocked ? "text-bad" : l.verdict === "REVIEW" ? "text-warn" : "text-ok";
   return (
-    <button onClick={() => onPick(l)} style={{
-      textAlign: "left", width: "100%", background: C.dCard, borderRadius: 16, padding: 16,
-      border: `1px solid ${blocked ? "rgba(248,113,113,.35)" : C.dBorder}`,
-      opacity: blocked ? 0.72 : 1,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <span style={{
-          fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", padding: "4px 8px",
-          borderRadius: 999, color: v.fg, background: `${v.fg}24`,
-        }}>
+    <button
+      onClick={() => onPick(l)}
+      className={cn(
+        "w-full rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted/40",
+        l.blocked ? "border-bad/35 opacity-75" : "border-border",
+      )}
+    >
+      <div className="mb-2.5 flex items-center gap-2">
+        <span className={cn("rounded-full px-2 py-1 text-[10.5px] font-semibold tracking-[0.08em]", v.cls)}>
           {v.label}
         </span>
-        <span style={{ fontSize: 12, color: C.dSub, marginLeft: "auto" }}>{l.eq}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{l.eq}</span>
       </div>
 
-      <div className="num" style={{ fontSize: 34, fontWeight: 600, letterSpacing: "-.035em",
-        color: blocked ? C.dSub : C.dText, lineHeight: 1,
-        textDecoration: blocked ? "line-through" : undefined }}>
+      <div className={cn("num text-[34px] leading-none font-semibold tracking-[-0.035em]",
+        l.blocked && "text-muted-foreground line-through")}>
         ${l.rate.toLocaleString()}
       </div>
-      <div style={{ fontSize: 15, marginTop: 8, color: C.dText, fontWeight: 500 }}>
-        {l.origin} → {l.dest}
-      </div>
-      <div style={{ fontSize: 13, color: C.dSub, marginTop: 3 }}>
+      <div className="mt-2 text-[15px] font-medium">{l.origin} → {l.dest}</div>
+      <div className="num mt-0.5 text-[13px] text-muted-foreground">
         {Math.round(l.miles)} miles · ${l.rpm.toFixed(2)} a mile
       </div>
-      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.dBorder}`,
-        display: "flex", flexDirection: "column", gap: 5 }}>
+
+      <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
         {l.reasons.slice(0, 2).map((r, i) => (
-          <div key={i} style={{ fontSize: 13, color: C.dSub, display: "flex", gap: 8 }}>
-            <span style={{ color: v.fg, flex: "none", fontWeight: 600 }}>{v.tick}</span>
-            {r}
+          <div key={i} className="flex gap-2 text-[13px] text-muted-foreground">
+            <v.Icon className={cn("mt-px size-3.5 shrink-0", tone)} />
+            <span className="min-w-0">{r}</span>
           </div>
         ))}
       </div>
@@ -443,22 +362,16 @@ function Trip({ load, here, onArrive }: {
   const left = Math.round(haversineMi(here, [load.dest_lat, load.dest_lng]) * 1.19);
   return (
     <>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".1em",
-        textTransform: "uppercase", color: "#FDBA74" }}>
-        On the way to
-      </div>
-      <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-.035em", marginTop: 3 }}>
-        {load.dest}
-      </div>
-      <div className="num" style={{ fontSize: 15, color: C.dSub, marginTop: 10 }}>
+      <div className="text-[11px] font-semibold tracking-[0.1em] text-primary/90 uppercase">On the way to</div>
+      <h1 className="mt-0.5 text-2xl font-semibold tracking-[-0.035em]">{load.dest}</h1>
+      <div className="num mt-2.5 text-[15px] text-muted-foreground">
         {left} miles out · ${load.rate.toLocaleString()} on this run
       </div>
-      <div style={{ marginTop: 18, padding: "14px 16px", borderRadius: 12, background: C.dCard,
-        border: `1px solid ${C.dBorder}`, fontSize: 13.5, color: C.dSub, lineHeight: 1.5 }}>
+      <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3.5 text-[13.5px] leading-relaxed text-muted-foreground">
         When you pull into the dock, hit the button. That timestamp is what gets you
         paid if they make you wait.
       </div>
-      <BigBtn onClick={onArrive} style={{ marginTop: 20 }}>I'm at the dock</BigBtn>
+      <Button size="cab" className="mt-5" onClick={onArrive}>I'm at the dock</Button>
     </>
   );
 }
@@ -471,12 +384,10 @@ function Pod({ img, fileRef, onPick, onSend }: {
 }) {
   return (
     <>
-      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-.03em" }}>
-        Snap the signed paperwork
-      </div>
-      <div style={{ fontSize: 14.5, color: C.dSub, marginTop: 7, lineHeight: 1.45 }}>
+      <h1 className="text-xl font-semibold tracking-[-0.03em]">Snap the signed paperwork</h1>
+      <p className="mt-1.5 text-[14.5px] leading-relaxed text-muted-foreground">
         One photo. We read it, invoice it, and chase the money.
-      </div>
+      </p>
 
       <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
         onChange={(e) => {
@@ -487,17 +398,18 @@ function Pod({ img, fileRef, onPick, onSend }: {
           r.readAsDataURL(f);
         }} />
 
-      <button onClick={() => fileRef.current?.click()} style={{
-        marginTop: 18, width: "100%", height: 190, borderRadius: 16,
-        border: `2px dashed ${img ? "#34D399" : "rgba(255,255,255,.22)"}`,
-        background: img ? "rgba(52,211,153,.08)" : "rgba(255,255,255,.03)",
-        color: img ? "#34D399" : C.dSub, fontSize: 15, fontWeight: 500,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        {img ? "✓ Photo captured" : "Tap to open the camera"}
+      <button
+        onClick={() => fileRef.current?.click()}
+        className={cn(
+          "mt-4 flex h-48 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed text-[15px] font-medium transition-colors",
+          img ? "border-ok bg-ok/8 text-ok" : "border-border bg-muted/25 text-muted-foreground hover:bg-muted/40",
+        )}
+      >
+        <Camera className="size-6" />
+        {img ? "Photo captured" : "Tap to open the camera"}
       </button>
 
-      <BigBtn onClick={onSend} disabled={!img} style={{ marginTop: 18 }}>Send it</BigBtn>
+      <Button size="cab" className="mt-4" disabled={!img} onClick={onSend}>Send it</Button>
     </>
   );
 }
@@ -506,57 +418,53 @@ function Paid({ load, owed, onDone }: { load: DriverLoad; owed: number; onDone: 
   const total = load.rate + owed;
   return (
     <>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: ".1em",
-        textTransform: "uppercase", color: "#34D399" }}>
-        Money in
-      </div>
-      <div className="num" style={{ fontSize: 46, fontWeight: 600, letterSpacing: "-.04em",
-        marginTop: 6, lineHeight: 1 }}>
+      <div className="text-[11px] font-semibold tracking-[0.1em] text-ok uppercase">Money in</div>
+      <div className="num mt-1.5 text-[46px] leading-none font-semibold tracking-[-0.04em]">
         ${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
       </div>
-      <div style={{ marginTop: 18, background: C.dCard, borderRadius: 14,
-        border: `1px solid ${C.dBorder}`, overflow: "hidden" }}>
+      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
         <Row k="The load" v={`$${load.rate.toLocaleString()}`} />
-        {owed > 0 && (
-          <Row k="Waiting time we fought for" v={`+$${owed.toFixed(2)}`} accent="#F97316" />
-        )}
+        {owed > 0 && <Row k="Waiting time we fought for" v={`+$${owed.toFixed(2)}`} accent />}
       </div>
       {owed > 0 && (
-        <div style={{ fontSize: 13.5, color: C.dSub, marginTop: 14, lineHeight: 1.5 }}>
+        <p className="mt-3.5 text-[13.5px] leading-relaxed text-muted-foreground">
           The broker was going to pay you nothing for that wait. Your GPS timestamps
           are what changed their mind.
-        </div>
+        </p>
       )}
-      <BigBtn onClick={onDone} style={{ marginTop: 20 }}>Find the next one</BigBtn>
+      <Button size="cab" className="mt-5" onClick={onDone}>Find the next one</Button>
     </>
   );
 }
 
-function Row({ k, v, accent }: { k: string; v: string; accent?: string }) {
+function Row({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "13px 15px",
-      borderTop: `1px solid ${C.dBorder}`, fontSize: 14 }}>
-      <span style={{ color: C.dSub }}>{k}</span>
-      <span className="num" style={{ color: accent ?? C.dText, fontWeight: 500 }}>{v}</span>
+    <div className="flex justify-between border-t border-border px-4 py-3 text-sm first:border-t-0">
+      <span className="text-muted-foreground">{k}</span>
+      <span className={cn("num font-medium", accent && "text-primary")}>{v}</span>
     </div>
   );
 }
 
-/** 64px tall, near-black on orange. Same floor as the real Lumper cab UI. */
-function BigBtn({ children, onClick, disabled, style }: {
-  children: React.ReactNode; onClick?: () => void; disabled?: boolean;
-  style?: React.CSSProperties;
-}) {
+/** On a wide screen there is room to show the work behind the answer, so the
+ *  agents' own trace floats over the map. A phone gets the outcome only. */
+function TracePeek({ trace }: { trace: TraceEvent[] }) {
+  const last = trace.slice(-7);
   return (
-    <button onClick={disabled ? undefined : onClick} disabled={disabled} style={{
-      width: "100%", height: PRIMARY_BTN_H, borderRadius: 10,
-      background: disabled ? "rgba(255,255,255,.09)" : "#F97316",
-      color: disabled ? "#6F6F6C" : C.onAccent,
-      fontSize: 19, fontWeight: 600, letterSpacing: "-.02em",
-      transition: "background-color .15s ease-out",
-      cursor: disabled ? "default" : "pointer", ...style,
-    }}>
-      {children}
-    </button>
+    <div className="pointer-events-none absolute right-4 bottom-4 hidden w-95 max-w-[calc(100%-2rem)] rounded-xl border border-border bg-popover/85 px-4 py-3 backdrop-blur-md lg:block">
+      <div className="mb-2 text-[10px] font-semibold tracking-[0.14em] text-ok uppercase">
+        Agents working
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {last.map((e, i) => (
+          <div key={i} className={cn("mono truncate text-[10.5px]",
+            i === last.length - 1 ? "text-foreground" : "text-muted-foreground")}>
+            <span className="text-primary">{(e as { agent_name?: string }).agent_name ?? e.agent ?? "—"}</span>
+            {"  "}
+            {e.msg ?? e.tool ?? ""}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

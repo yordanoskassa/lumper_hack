@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { C } from "../theme";
+import { cn } from "@/lib/utils";
 
 export interface Check {
   q: string;          // plain English, what a bystander understands
@@ -9,10 +9,10 @@ export interface Check {
 }
 
 const TONE = {
-  pass: { fg: "#34D399", label: "OK" },
-  warn: { fg: "#F59E0B", label: "ODD" },
-  fail: { fg: "#F87171", label: "BAD" },
-};
+  pass: { label: "OK", text: "text-ok", chip: "text-ok border-ok/30 bg-ok/10", box: "border-ok/25 bg-ok/8" },
+  warn: { label: "ODD", text: "text-warn", chip: "text-warn border-warn/30 bg-warn/10", box: "border-warn/25 bg-warn/8" },
+  fail: { label: "BAD", text: "text-bad", chip: "text-bad border-bad/30 bg-bad/10", box: "border-bad/25 bg-bad/8" },
+} as const;
 
 /** The security sweep. Deliberately the only place in the product that looks
  *  like a terminal — this is the moment we want to feel like a background check,
@@ -43,93 +43,62 @@ export function VerifyScan({
   const blocked = done && checks.some((c) => c.verdict === "fail");
 
   return (
-    <div style={{
-      position: "absolute", inset: 0, background: "#0B0B0E", zIndex: 20,
-      display: "flex", flexDirection: "column", padding: "26px 20px", overflow: "hidden",
-    }}>
+    <div className="absolute inset-0 z-20 flex flex-col overflow-y-auto bg-[#0B0B0E] px-5 py-6 sm:px-8 lg:px-10">
       {/* faint scanline field */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        background: "repeating-linear-gradient(0deg, rgba(52,211,153,.045) 0 1px, transparent 1px 3px)",
-      }} />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "repeating-linear-gradient(0deg, rgba(52,211,153,.045) 0 1px, transparent 1px 3px)" }}
+      />
 
-      <div style={{ position: "relative" }}>
-        <div className="mono" style={{
-          fontSize: 10.5, letterSpacing: ".14em", color: "#34D399", opacity: .8,
-        }}>
-          BACKGROUND CHECK RUNNING
-        </div>
-        <div style={{
-          fontSize: 21, fontWeight: 600, color: C.dText, marginTop: 6,
-          letterSpacing: "-.03em", lineHeight: 1.2,
-        }}>
+      <div className="relative mx-auto w-full max-w-2xl">
+        <div className="mono text-[10.5px] tracking-[0.14em] text-ok/80">BACKGROUND CHECK RUNNING</div>
+        <div className="mt-1.5 text-xl leading-tight font-semibold tracking-[-0.03em] sm:text-2xl">
           {broker}
         </div>
-      </div>
 
-      <div style={{ position: "relative", marginTop: 24, display: "flex",
-        flexDirection: "column", gap: 2, flex: 1 }}>
-        {checks.map((c, i) => {
-          const state = i < shown ? "done" : i === shown ? "running" : "idle";
-          if (state === "idle") return null;
-          const t = TONE[c.verdict];
-          return (
-            <div key={i} className="scan-row" style={{
-              padding: "11px 0", borderBottom: "1px solid rgba(255,255,255,.06)",
-            }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontSize: 14.5, color: C.dText, fontWeight: 500, flex: 1,
-                  lineHeight: 1.3 }}>
-                  {c.q}
-                </span>
-                {state === "running" ? (
-                  <span className="mono blink" style={{ fontSize: 11, color: "#34D399" }}>···</span>
-                ) : (
-                  <span className="mono" style={{
-                    fontSize: 10.5, fontWeight: 600, letterSpacing: ".1em", color: t.fg,
-                    border: `1px solid ${t.fg}44`, background: `${t.fg}14`,
-                    padding: "3px 7px", borderRadius: 5,
-                  }}>
-                    {t.label}
-                  </span>
+        <div className="mt-6 flex flex-col">
+          {checks.map((c, i) => {
+            const state = i < shown ? "done" : i === shown ? "running" : "idle";
+            if (state === "idle") return null;
+            const t = TONE[c.verdict];
+            return (
+              <div key={i} className="scan-row border-b border-white/6 py-3">
+                <div className="flex items-baseline gap-2.5">
+                  <span className="flex-1 text-[14.5px] leading-snug font-medium">{c.q}</span>
+                  {state === "running" ? (
+                    <span className="mono blink text-[11px] text-ok">···</span>
+                  ) : (
+                    <span className={cn("mono shrink-0 rounded border px-1.5 py-0.5 text-[10.5px] font-semibold tracking-[0.1em]", t.chip)}>
+                      {t.label}
+                    </span>
+                  )}
+                </div>
+                <div className="mono mt-1 text-[11px] text-muted-foreground">{c.detail}</div>
+                {state === "done" && c.found && (
+                  <div className={cn("mono mt-2 rounded-lg border px-2.5 py-2 text-[11.5px] leading-relaxed break-words", t.box, t.text)}>
+                    {c.found}
+                  </div>
                 )}
               </div>
-              <div className="mono" style={{ fontSize: 11, color: "#6F6F6C", marginTop: 4 }}>
-                {c.detail}
-              </div>
-              {state === "done" && c.found && (
-                <div className="mono" style={{
-                  fontSize: 11.5, color: t.fg, marginTop: 7, padding: "8px 10px",
-                  background: `${t.fg}12`, border: `1px solid ${t.fg}33`, borderRadius: 7,
-                  lineHeight: 1.5,
-                }}>
-                  {c.found}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {done && (
-        <div className="scan-row" style={{
-          position: "relative", marginTop: 16, padding: "18px 18px", borderRadius: 14,
-          background: blocked ? "rgba(248,113,113,.12)" : "rgba(52,211,153,.12)",
-          border: `1px solid ${blocked ? "rgba(248,113,113,.4)" : "rgba(52,211,153,.4)"}`,
-        }}>
-          <div style={{
-            fontSize: 26, fontWeight: 600, letterSpacing: "-.035em",
-            color: blocked ? "#F87171" : "#34D399", lineHeight: 1.1,
-          }}>
-            {blocked ? "We blocked this load" : "This one is safe"}
-          </div>
-          <div style={{ fontSize: 14, color: C.dSub, marginTop: 6, lineHeight: 1.4 }}>
-            {blocked
-              ? "You would have hauled it and never been paid."
-              : "Real company. They pay. Go get it."}
-          </div>
+            );
+          })}
         </div>
-      )}
+
+        {done && (
+          <div className={cn("scan-row mt-4 rounded-2xl border px-4 py-4",
+            blocked ? "border-bad/40 bg-bad/12" : "border-ok/40 bg-ok/12")}>
+            <div className={cn("text-2xl leading-tight font-semibold tracking-[-0.035em]",
+              blocked ? "text-bad" : "text-ok")}>
+              {blocked ? "We blocked this load" : "This one is safe"}
+            </div>
+            <div className="mt-1.5 text-sm leading-snug text-muted-foreground">
+              {blocked
+                ? "You would have hauled it and never been paid."
+                : "Real company. They pay. Go get it."}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { CITY_COORDS, LAKE_PATHS, MAP_H, MAP_W, UNITS_PER_MI, US_PATH, GRID, arc, project } from "./geo";
 
 export interface MapPin {
@@ -88,7 +89,7 @@ export function MapCanvas({
   focus,
   geofenceMi,
   scanning,
-  height = 300,
+  className,
 }: {
   pins: MapPin[];
   routes?: MapRoute[];
@@ -97,7 +98,9 @@ export function MapCanvas({
   /** Draw a dock radius (miles) around the first "dock" pin. */
   geofenceMi?: number;
   scanning?: boolean;
-  height?: number | string;
+  /** The map fills whatever box it is given — the parent owns the height so a
+   *  breakpoint can change it without JavaScript. */
+  className?: string;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [aspect, setAspect] = useState(MAP_W / MAP_H);
@@ -121,9 +124,9 @@ export function MapCanvas({
   const fenceR = geofenceMi ? (geofenceMi / 69) * (MAP_H / 25.4) : 0;
 
   return (
-    <div ref={wrap} style={{ position: "relative", height, background: "#0C0C0F", overflow: "hidden" }}>
+    <div ref={wrap} className={cn("relative h-full overflow-hidden bg-[#0C0C0F]", className)}>
       <svg viewBox={viewBox} width="100%" height="100%" preserveAspectRatio="xMidYMid slice"
-        style={{ display: "block" }}>
+        className="block">
         <defs>
           <radialGradient id="glow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#F97316" stopOpacity="0.35" />
@@ -234,10 +237,10 @@ export function MapCanvas({
 
       {scanning && <ScanSweep />}
       {/* vignette so the map sinks under the UI instead of fighting it */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        background: "radial-gradient(120% 80% at 50% 35%, transparent 40%, rgba(10,10,12,.55) 100%)",
-      }} />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(120% 80% at 50% 35%, transparent 40%, rgba(10,10,12,.55) 100%)" }}
+      />
     </div>
   );
 }
@@ -245,15 +248,15 @@ export function MapCanvas({
 /** The security sweep: a radar bar crossing the map while agents verify. */
 function ScanSweep() {
   return (
-    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-      <div style={{
-        position: "absolute", inset: 0,
-        background: "repeating-linear-gradient(0deg, rgba(52,211,153,.05) 0 1px, transparent 1px 3px)",
-      }} />
-      <div className="scan-bar" style={{
-        position: "absolute", left: 0, right: 0, height: 120,
-        background: "linear-gradient(180deg, transparent, rgba(52,211,153,.18) 60%, rgba(52,211,153,.55) 96%, transparent)",
-      }} />
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0"
+        style={{ background: "repeating-linear-gradient(0deg, rgba(52,211,153,.05) 0 1px, transparent 1px 3px)" }}
+      />
+      <div
+        className="scan-bar absolute inset-x-0 h-30"
+        style={{ background: "linear-gradient(180deg, transparent, rgba(52,211,153,.18) 60%, rgba(52,211,153,.55) 96%, transparent)" }}
+      />
     </div>
   );
 }
