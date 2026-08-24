@@ -1,0 +1,24 @@
+{
+  "name": "sentinel-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render src/index.ts Sentinel out/sentinel.mp4 --concurrency 8",
+    "still": "remotion still src/index.ts Sentinel out/poster.png --frame=3210"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.435",
+    "@remotion/cli": "4.0.435",
+    "@remotion/google-fonts": "4.0.435",
+    "@remotion/media": "4.0.435",
+    "@remotion/renderer": "4.0.435",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.435"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "typescript": "5.7.3"
+  }
+}
