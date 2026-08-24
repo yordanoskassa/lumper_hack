@@ -386,8 +386,17 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
   );
 }
 
+/** Three states, never two: a REVIEW load dressed as "SAFE" with a green tick is
+ *  the one lie this screen must not tell. */
+const VERDICT_UI = {
+  CLEAR: { label: "CHECKED · SAFE", fg: "#34D399", tick: "✓" },
+  REVIEW: { label: "CHECKED · ONE CATCH", fg: "#F59E0B", tick: "!" },
+  BLOCKED: { label: "BLOCKED", fg: "#F87171", tick: "✕" },
+} as const;
+
 function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => void }) {
   const blocked = l.blocked;
+  const v = VERDICT_UI[blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
   return (
     <button onClick={() => onPick(l)} style={{
       textAlign: "left", width: "100%", background: C.dCard, borderRadius: 16, padding: 16,
@@ -397,11 +406,9 @@ function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => voi
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{
           fontSize: 10.5, fontWeight: 600, letterSpacing: ".08em", padding: "4px 8px",
-          borderRadius: 999,
-          color: blocked ? "#F87171" : "#34D399",
-          background: blocked ? "rgba(248,113,113,.14)" : "rgba(52,211,153,.14)",
+          borderRadius: 999, color: v.fg, background: `${v.fg}24`,
         }}>
-          {blocked ? "BLOCKED" : "CHECKED · SAFE"}
+          {v.label}
         </span>
         <span style={{ fontSize: 12, color: C.dSub, marginLeft: "auto" }}>{l.eq}</span>
       </div>
@@ -421,7 +428,7 @@ function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => voi
         display: "flex", flexDirection: "column", gap: 5 }}>
         {l.reasons.slice(0, 2).map((r, i) => (
           <div key={i} style={{ fontSize: 13, color: C.dSub, display: "flex", gap: 8 }}>
-            <span style={{ color: blocked ? "#F87171" : "#34D399" }}>{blocked ? "✕" : "✓"}</span>
+            <span style={{ color: v.fg, flex: "none", fontWeight: 600 }}>{v.tick}</span>
             {r}
           </div>
         ))}
