@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { C, TONE, type ToneKey } from "../theme";
+import { C, TONE, FONT, PRIMARY_BTN_H, type ToneKey } from "../theme";
 
 export function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
@@ -34,17 +34,24 @@ export function Dot({ color = "#16A34A", anim }: { color?: string; anim?: boolea
   return <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block", animation: anim ? "pulse 1.2s ease-in-out infinite" : undefined }} />;
 }
 
-export function Btn({ children, onClick, kind = "ghost", disabled, style }: {
-  children: ReactNode; onClick?: () => void; kind?: "primary" | "ghost" | "danger"; disabled?: boolean; style?: CSSProperties;
+export function Btn({ children, onClick, kind = "ghost", size = "sm", disabled, style }: {
+  children: ReactNode; onClick?: () => void; kind?: "primary" | "ghost" | "danger" | "neutral";
+  size?: "sm" | "driver"; disabled?: boolean; style?: CSSProperties;
 }) {
-  const base: CSSProperties = { fontSize: 12.5, fontWeight: 500, padding: "8px 13px", borderRadius: 8, whiteSpace: "nowrap", transition: "background .12s" };
+  const driver = size === "driver";
+  const base: CSSProperties = driver
+    ? { width: "100%", height: PRIMARY_BTN_H, fontSize: 19, fontWeight: 600, borderRadius: 10, letterSpacing: "-.02em", gap: 12, display: "inline-flex", alignItems: "center", justifyContent: "center" }
+    : { fontSize: 12.5, fontWeight: 500, padding: "8px 13px", borderRadius: 8, whiteSpace: "nowrap" };
+  // Colour-only motion, per lumper DESIGN.md — no lift, no scale.
   const kinds: Record<string, CSSProperties> = {
-    primary: { background: disabled ? "#fff" : C.black, color: disabled ? C.muted : "#fff", border: `1px solid ${disabled ? C.border : C.black}` },
+    primary: { background: disabled ? C.faint : C.orange, color: disabled ? C.muted : (driver ? C.onAccent : "#fff"), border: "1px solid transparent" },
+    neutral: { background: disabled ? "#fff" : C.black, color: disabled ? C.muted : "#fff", border: `1px solid ${disabled ? C.border : C.black}` },
     ghost: { background: "#fff", color: C.black, border: `1px solid ${C.border}` },
     danger: { background: "#fff", color: "#DC2626", border: "1px solid #FECACA" },
   };
   return (
-    <button onClick={disabled ? undefined : onClick} disabled={disabled} style={{ ...base, ...kinds[kind], cursor: disabled ? "default" : "pointer", ...style }}>
+    <button onClick={disabled ? undefined : onClick} disabled={disabled}
+      style={{ ...base, ...kinds[kind], fontFamily: FONT, transition: "background-color .15s ease-out, color .15s ease-out", cursor: disabled ? "default" : "pointer", ...style }}>
       {children}
     </button>
   );

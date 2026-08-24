@@ -4,20 +4,33 @@ import { C } from "./theme";
 import { useStream } from "./useStream";
 import { Demo } from "./views/Demo";
 import { Desk } from "./views/Desk";
+import { Driver } from "./views/Driver";
+import { DriverApp } from "./driver/DriverApp";
 import { Fleet } from "./views/Fleet";
 import { Registry } from "./views/Registry";
 import { Chat } from "./components/Chat";
 
-type View = "demo" | "desk" | "fleet" | "registry";
+type View = "demo" | "driver" | "desk" | "fleet" | "registry";
 
 const NAV: { key: View; label: string; d: string }[] = [
   { key: "demo", label: "Guided demo", d: "M5 3l8 5-8 5z" },
+  { key: "driver", label: "Driver app", d: "M4.5 1.5h7v13h-7zM6.8 3.2h2.4" },
   { key: "desk", label: "Live desk", d: "M1 4h8v7H1zM9 7h3l2 2v2H9zM4 13a1.3 1.3 0 100-2.6A1.3 1.3 0 004 13zM11.5 13a1.3 1.3 0 100-2.6 1.3 1.3 0 000 2.6" },
   { key: "fleet", label: "Fleet", d: "M6 7a2.2 2.2 0 100-4.4A2.2 2.2 0 006 7zM2 14c0-2.2 1.8-3.5 4-3.5s4 1.3 4 3.5M11 4.5a2 2 0 010 4M12 14c0-1.8-.6-2.7-1.5-3.3" },
   { key: "registry", label: "Registry", d: "M4 2h5l3 3v9H4zM9 2v3h3M6 8h4M6 11h4" },
 ];
 
-const ROSTER = ["Yard Boss", "Scout", "Margin", "Ghost", "Handshake", "Fine Print", "Mile Marker", "Payday"];
+const ROSTER = ["Yard Boss", "Finder", "Verifier", "Closer", "Payday"];
+
+/** Installed to a home screen, or opened at /?driver=1, the phone IS the app —
+ *  no console chrome around it. */
+function standalone(): boolean {
+  return (
+    new URLSearchParams(location.search).get("driver") === "1" ||
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as any).standalone === true
+  );
+}
 
 export default function App() {
   const [view, setView] = useState<View>("demo");
@@ -47,6 +60,14 @@ export default function App() {
   }
 
   const now = Date.now();
+
+  if (standalone()) {
+    return (
+      <div style={{ height: "100dvh", background: C.dBg }}>
+        <DriverApp />
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: "100vh", display: "grid", gridTemplateColumns: "232px minmax(0,1fr)", background: C.bg, overflow: "hidden" }}>
@@ -115,6 +136,7 @@ export default function App() {
       {/* MAIN */}
       <div style={{ overflowY: "auto", minWidth: 0, position: "relative" }}>
         {view === "demo" && <Demo trace={trace} connected={connected} />}
+        {view === "driver" && <Driver trace={trace} connected={connected} />}
         {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
         {view === "fleet" && <Fleet trace={trace} />}
         {view === "registry" && <Registry />}

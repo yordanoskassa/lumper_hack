@@ -64,9 +64,71 @@ export interface Desk {
   rows: DeskRow[];
 }
 
+/** Driver-app shape: one load, already judged, in words a non-trucker reads. */
+export interface DriverLoad {
+  id: string;
+  broker: string;
+  mc: string;
+  origin: string;
+  origin_lat: number;
+  origin_lng: number;
+  dest: string;
+  dest_lat: number;
+  dest_lng: number;
+  rate: number;
+  miles: number;
+  rpm: number;
+  net: number;
+  deadhead: number;
+  eq: string;
+  drive_h: number;
+  lane_avg: number;
+  verdict: "CLEAR" | "REVIEW" | "BLOCKED";
+  risk: number;
+  blocked: boolean;
+  reasons: string[];
+}
+
+export interface DriverBoard {
+  truck: { city: string; lat: number; lng: number; driver: string };
+  loads: DriverLoad[];
+}
+
 async function jn<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   return r.json();
+}
+
+/** Until the backend ships /api/loads, fold the desk board into the driver shape
+ *  so the phone is demoable on its own. Coordinates come from the city table. */
+function deskToDriver(d: Desk, coords: Record<string, [number, number]>): DriverBoard {
+  const truckCity: string = d.truck?.city ?? "Joliet IL";
+  const [tlat, tlng] = coords[truckCity] ?? [41.525, -88.0834];
+  // Margin already killed the unprofitable ones; the driver should never scroll
+  // past them. Blocked brokers stay, because the block is the point.
+  const visible = d.rows.filter(
+    (r) => !r.kill || r.blacklisted || r.ghost?.verdict === "REFUSE",
+  );
+  const loads: DriverLoad[] = visible.map((r) => {
+    const [olat, olng] = coords[r.origin] ?? [tlat, tlng];
+    const [dlat, dlng] = coords[r.dest] ?? [tlat, tlng];
+    const v = r.ghost?.verdict ?? "";
+    const blocked = r.blacklisted || v === "REFUSE" || v === "REFUSED";
+    return {
+      id: r.id, broker: r.broker, mc: r.mc,
+      origin: r.origin, origin_lat: olat, origin_lng: olng,
+      dest: r.dest, dest_lat: dlat, dest_lng: dlng,
+      rate: r.rate ?? 0, miles: r.miles, rpm: r.rpm, net: r.net,
+      deadhead: r.deadhead, eq: r.eq, drive_h: r.drive_h, lane_avg: r.lane_avg,
+      verdict: blocked ? "BLOCKED" : v === "REVIEW" ? "REVIEW" : "CLEAR",
+      risk: r.ghost?.score ?? 0,
+      blocked,
+      reasons: blocked
+        ? ["This company failed our checks", "You would not have been paid"]
+        : ["Real company on the federal registry", "Pays on time"],
+    };
+  });
+  return { truck: { city: truckCity, lat: tlat, lng: tlng, driver: d.truck?.driver ?? "Driver" }, loads };
 }
 
 export const api = {
@@ -105,6 +167,38 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message, run_id }),
     }).then(jn<any>),
+  loads: async (coords: Record<string, [number, number]>): Promise<DriverBoard> => {
+    const r = await fetch("/api/loads");
+    if (r.ok) return r.json();
+    if (r.status !== 404) throw new Error(`${r.status} ${await r.text()}`);
+    return deskToDriver(await fetch("/api/desk").then(jn<Desk>), coords);
+  },
+  arrive: (posting_id: string, lat?: number, lng?: number) =>
+    fetch("/api/arrive", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ posting_id, lat, lng }),
+    }).then(jn<{ run_id: string; started: boolean }>),
+  depart: (posting_id: string, lat?: number, lng?: number) =>
+    fetch("/api/depart", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ posting_id, lat, lng }),
+    }).then(jn<any>),
+  /** null when the backend has no detention endpoint yet — caller falls back to
+   *  its own clock so the phone demos standalone. */
+  detention: async (): Promise<any | null> => {
+    const r = await fetch("/api/detention");
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    return r.json();
+  },
+  pod: (posting_id: string, image_b64: string, lat?: number, lng?: number) =>
+    fetch("/api/pod", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ posting_id, image_b64, lat, lng }),
+    }).then(jn<{ run_id: string; started: boolean }>),
   runs: () => fetch("/api/runs").then(jn<{ runs: any[] }>),
   outbox: () => fetch("/api/outbox").then(jn<{ messages: any[] }>),
   reset: () => fetch("/api/reset", { method: "POST" }).then(jn<any>),
