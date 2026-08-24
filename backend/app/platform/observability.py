@@ -30,6 +30,12 @@ class TraceEvent:
     ts: float = field(default_factory=time.time)
     seq: int = field(default_factory=lambda: next(_seq))
 
+    def __post_init__(self) -> None:
+        # infrastructure emitters (Gateway, Gmail, Model Armor) have no separate
+        # display name — never ship an empty label to the UI
+        if not self.agent_name:
+            self.agent_name = self.agent
+
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["clock"] = time.strftime("%H:%M:%S", time.localtime(self.ts))
