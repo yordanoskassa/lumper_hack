@@ -100,23 +100,30 @@ class YardBoss(Agent):
         return None
 
     async def dispatch(self, run_id: str, name: str, args: dict) -> dict:
+        # Fast routes resolve inline so the chat reply carries the result.
         if name == "scan_board":
             return await self.scan_board(run_id)
         if name == "screen_broker":
             g = await self.ghost.screen(run_id, args["mc"])
             return {"reply": f"{g['broker']} ({g['mc']}): {g['verdict']} — {g['summary']}",
                     "ghost": g}
-        if name == "book_load":
-            return await self.book_load(run_id, args["posting_id"], args.get("rate"))
         if name == "audit_injection":
             return await self.scenario_injection(run_id)
+        # Long-running routes launch in the Runtime and stream to the trace;
+        # the chat returns immediately rather than blocking for simulated days.
+        if name == "book_load":
+            pid = args["posting_id"]
+            runs.launch(run_id, self.book_load(run_id, pid, args.get("rate")))
+            return {"reply": f"Dispatching {pid} — Scout→Margin→Ghost→Handshake→"
+                             f"Fine Print→Mile Marker→Payday now. Watch the live trace."}
         if name == "run_scenario":
             which = args.get("which", "clean")
-            if which == "ghost":
-                return await self.scenario_ghost(run_id)
             if which == "injection":
                 return await self.scenario_injection(run_id)
-            return await self.scenario_clean(run_id)
+            coro = self.scenario_ghost(run_id) if which == "ghost" else self.scenario_clean(run_id)
+            runs.launch(run_id, coro)
+            label = "double-brokering refusal" if which == "ghost" else "clean end-to-end cycle"
+            return {"reply": f"Running the {label} — watch the fleet hand off in the live trace."}
         return {"reply": f"Unknown route {name}."}
 
     # ---- orchestration --------------------------------------------------
