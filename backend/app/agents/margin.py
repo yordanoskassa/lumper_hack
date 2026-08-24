@@ -52,14 +52,17 @@ class Margin(Agent):
         if not p.get("rate"):
             return _kill(p, "rate on request")
 
-        # real route (verbose only for the real board, to keep the trace readable)
-        route = await self.call(
-            run_id, "maps.route", origin=p["o"], dest=p["d"],
-            trace=None if quiet else "Routes API — {detail}")
-        miles = route.value["miles"]
-        dh_route = await self.call(run_id, "maps.route", origin=truck["city"], dest=p["o"]) \
-            if not quiet else None
-        deadhead = dh_route.value["miles"] if dh_route else p["dh"]
+        # Real candidates get a live route (Maps); the synthetic filler board
+        # uses its seeded mileage so a 200-row scan stays demo-fast and we
+        # never burn live API calls on postings that only exist to be killed.
+        if quiet:
+            miles, deadhead = float(p["mi"]), float(p["dh"])
+        else:
+            route = await self.call(run_id, "maps.route", origin=p["o"], dest=p["d"],
+                                    trace="Routes API — {detail}")
+            miles = route.value["miles"]
+            dh_route = await self.call(run_id, "maps.route", origin=truck["city"], dest=p["o"])
+            deadhead = dh_route.value["miles"]
         total = miles + deadhead
 
         padd = padd_for_city(p["o"])

@@ -83,7 +83,13 @@ class Ghost(Agent):
         result = {"mc": mc, "broker": name, "verdict": verdict, "score": score,
                   "checks": checks, "failed": len(failed), "collisions": col,
                   "tone": tone}
-        result["summary"] = await self._summary(run_id, result, broker)
+        # Bulk board screening uses the deterministic template summary; only an
+        # interactive single screen spends a live Gemini call on the prose.
+        if quiet:
+            neighbors = {x["_key"]: x for x in col["phone"] + col["ach"]}
+            result["summary"] = _template_summary(result, neighbors)
+        else:
+            result["summary"] = await self._summary(run_id, result, broker)
 
         if not quiet:
             self.say(run_id, f"{mc} → {verdict} · risk {score}/100 · {len(failed)}/7 checks failed",

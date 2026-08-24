@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { api, type Desk as DeskData, type TraceEvent } from "./api";
 import { C } from "./theme";
 import { useStream } from "./useStream";
+import { Demo } from "./views/Demo";
 import { Desk } from "./views/Desk";
 import { Fleet } from "./views/Fleet";
 import { Registry } from "./views/Registry";
 import { Chat } from "./components/Chat";
 
-type View = "desk" | "fleet" | "registry";
+type View = "demo" | "desk" | "fleet" | "registry";
 
 const NAV: { key: View; label: string; d: string }[] = [
-  { key: "desk", label: "Desk", d: "M1 4h8v7H1zM9 7h3l2 2v2H9zM4 13a1.3 1.3 0 100-2.6A1.3 1.3 0 004 13zM11.5 13a1.3 1.3 0 100-2.6 1.3 1.3 0 000 2.6" },
+  { key: "demo", label: "Guided demo", d: "M5 3l8 5-8 5z" },
+  { key: "desk", label: "Live desk", d: "M1 4h8v7H1zM9 7h3l2 2v2H9zM4 13a1.3 1.3 0 100-2.6A1.3 1.3 0 004 13zM11.5 13a1.3 1.3 0 100-2.6 1.3 1.3 0 000 2.6" },
   { key: "fleet", label: "Fleet", d: "M6 7a2.2 2.2 0 100-4.4A2.2 2.2 0 006 7zM2 14c0-2.2 1.8-3.5 4-3.5s4 1.3 4 3.5M11 4.5a2 2 0 010 4M12 14c0-1.8-.6-2.7-1.5-3.3" },
   { key: "registry", label: "Registry", d: "M4 2h5l3 3v9H4zM9 2v3h3M6 8h4M6 11h4" },
 ];
@@ -18,7 +20,7 @@ const NAV: { key: View; label: string; d: string }[] = [
 const ROSTER = ["Yard Boss", "Scout", "Margin", "Ghost", "Handshake", "Fine Print", "Mile Marker", "Payday"];
 
 export default function App() {
-  const [view, setView] = useState<View>("desk");
+  const [view, setView] = useState<View>("demo");
   const [deskFromStream, setDeskFromStream] = useState<DeskData | null>(null);
   const [chatFeed, setChatFeed] = useState<{ role: string; text: string }[]>([]);
   const [tenant, setTenant] = useState<any>(null);
@@ -112,6 +114,7 @@ export default function App() {
 
       {/* MAIN */}
       <div style={{ overflowY: "auto", minWidth: 0, position: "relative" }}>
+        {view === "demo" && <Demo trace={trace} connected={connected} />}
         {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
         {view === "fleet" && <Fleet trace={trace} />}
         {view === "registry" && <Registry />}
@@ -121,7 +124,7 @@ export default function App() {
           {chatOpen ? (
             <div style={{ display: "flex", flexDirection: "column", height: "70vh", boxShadow: "0 12px 40px rgba(0,0,0,.16)", borderRadius: 12 }}>
               <button onClick={() => setChatOpen(false)} style={{ position: "absolute", top: 10, right: 12, fontSize: 16, color: C.muted, zIndex: 2 }}>✕</button>
-              <Chat chatFeed={chatFeed} onRoute={() => { if (view !== "desk") setView("desk"); }} />
+              <Chat chatFeed={chatFeed} onRoute={() => { if (view === "registry" || view === "fleet") setView("desk"); }} />
             </div>
           ) : (
             <button onClick={() => setChatOpen(true)} style={{ display: "flex", alignItems: "center", gap: 9, background: C.black, color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 13, fontWeight: 500, boxShadow: "0 8px 24px rgba(0,0,0,.18)" }}>

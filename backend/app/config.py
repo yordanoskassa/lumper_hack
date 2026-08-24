@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # Seconds of wall clock per simulated hour for long-running stages. A trip
     # + multi-week payment cycle compresses to well under a minute so the whole
     # arc is watchable on stage; every compression is disclosed in the trace.
-    sim_seconds_per_hour: float = 0.06
+    sim_seconds_per_hour: float = 0.02
     # Artificial pacing between trace beats so the demo reads on stage (seconds).
     trace_beat_delay: float = 0.35
 

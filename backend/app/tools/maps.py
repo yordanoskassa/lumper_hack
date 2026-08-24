@@ -51,22 +51,27 @@ async def route(origin: str, dest: str) -> dict:
             "destination": {"location": {"latLng": {"latitude": d[0], "longitude": d[1]}}},
             "travelMode": "DRIVE",
         }
-        async with httpx.AsyncClient(timeout=15) as cx:
-            r = await cx.post(
-                "https://routes.googleapis.com/directions/v2:computeRoutes",
-                json=body,
-                headers={"X-Goog-Api-Key": settings().google_maps_api_key,
-                         "X-Goog-FieldMask": "routes.distanceMeters,routes.duration"},
-            )
-            r.raise_for_status()
-            routes = r.json().get("routes") or []
-            if routes:
+        try:
+            async with httpx.AsyncClient(timeout=15) as cx:
+                r = await cx.post(
+                    "https://routes.googleapis.com/directions/v2:computeRoutes",
+                    json=body,
+                    headers={"X-Goog-Api-Key": settings().google_maps_api_key,
+                             "X-Goog-FieldMask": "routes.distanceMeters,routes.duration"},
+                )
+                r.raise_for_status()
+                routes = r.json().get("routes") or []
+            # Routes API can return a route element without distanceMeters
+            # (unroutable pair, partial result). Fall back rather than crash.
+            if routes and "distanceMeters" in routes[0]:
                 meters = routes[0]["distanceMeters"]
-                secs = float(str(routes[0]["duration"]).rstrip("s"))
+                secs = float(str(routes[0].get("duration", "0s")).rstrip("s")) or (meters / 1609.34 / AVG_MPH * 3600)
                 out = {"miles": meters / 1609.34, "hours": secs / 3600,
                        "origin": o, "dest": d, "backend": "live"}
                 _route_cache[key] = out
                 return out
+        except (httpx.HTTPError, KeyError, ValueError, TypeError):
+            pass  # fall through to the haversine estimate below
     miles = _haversine_mi(o, d) * ROAD_FACTOR
     out = {"miles": miles, "hours": miles / AVG_MPH, "origin": o, "dest": d,
            "backend": "cached"}

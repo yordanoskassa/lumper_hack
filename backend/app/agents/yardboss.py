@@ -81,6 +81,17 @@ class YardBoss(Agent):
         hub.emit_misc("chat", {"run_id": run_id, "role": "assistant", "text": reply})
         return {"reply": reply, "route": route["name"], "result": result}
 
+    async def _resolve_mc(self, ident: str) -> str:
+        """Gemini sometimes hands screen_broker a posting id instead of an MC —
+        resolve it to the posting's broker so we screen a real record."""
+        ident = ident.upper().replace(" ", "-").strip()
+        if ident.startswith("MC"):
+            return ident
+        posting = await bank.get("board", ident)
+        if posting:
+            return posting["mc"]
+        return ident
+
     def _keyword_route(self, msg: str) -> dict | None:
         m = msg.lower()
         mc = re.search(r"mc[-\s]?\d{4,7}", m)
@@ -104,7 +115,8 @@ class YardBoss(Agent):
         if name == "scan_board":
             return await self.scan_board(run_id)
         if name == "screen_broker":
-            g = await self.ghost.screen(run_id, args["mc"])
+            mc = await self._resolve_mc(args.get("mc", ""))
+            g = await self.ghost.screen(run_id, mc)
             return {"reply": f"{g['broker']} ({g['mc']}): {g['verdict']} — {g['summary']}",
                     "ghost": g}
         if name == "audit_injection":
