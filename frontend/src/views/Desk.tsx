@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, type Desk as DeskData, type DeskRow, type TraceEvent } from "../api";
-import { C, TONE, money } from "../theme";
-import { Card, Pill, Btn } from "../components/ui";
-import { Trace } from "../components/Trace";
+import { RefreshCw, RotateCcw } from "lucide-react";
+import { api, type Desk as DeskData, type DeskRow, type TraceEvent } from "@/api";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Trace } from "@/components/Trace";
 
-interface RunRow { id: string; broker: string; stage: string; day: number; amount: number; status: string; tone: string }
+interface RunRow { id: string; broker: string; stage: string; day: number; amount: number; status: string }
 
 const FILTERS = ["All", "Survivors", "Under 50mi DH", "Flagged"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -15,8 +21,46 @@ const COLS: { key: string; label: string; align: "left" | "right" }[] = [
   { key: "dh", label: "DH", align: "right" },
   { key: "mi", label: "MI", align: "right" },
   { key: "rpm", label: "RPM", align: "right" },
-  { key: "tag", label: "MARGIN", align: "right" },
+  { key: "tag", label: "VERDICT", align: "right" },
 ];
+
+/** The six-column table grid, shared by its header and its rows so they line up. */
+const TABLE_COLS = "grid grid-cols-[1.6fr_0.9fr_0.7fr_0.7fr_0.8fr_1fr] gap-2";
+
+/** Verdict wash + ink. Mirrors the driver app so one load reads the same on both. */
+const TAG_CLS: Record<string, string> = {
+  TOP: "border-ok/35 bg-ok/12 text-ok",
+  PASS: "border-border bg-muted/50 text-muted-foreground",
+  KILL: "border-border bg-muted/50 text-muted-foreground",
+  RISK: "border-bad/35 bg-bad/12 text-bad",
+  FLAGGED: "border-bad/35 bg-bad/12 text-bad",
+};
+
+const VERDICT_CLS: Record<string, string> = {
+  CLEAR: "border-ok/35 bg-ok/12 text-ok",
+  REVIEW: "border-warn/35 bg-warn/12 text-warn",
+  REFUSE: "border-bad/35 bg-bad/12 text-bad",
+  BLACKLISTED: "border-bad/35 bg-bad/12 text-bad",
+};
+
+const VERDICT_BAR: Record<string, string> = {
+  CLEAR: "bg-ok", REVIEW: "bg-warn", REFUSE: "bg-bad", BLACKLISTED: "bg-bad",
+};
+
+const VERDICT_INK: Record<string, string> = {
+  CLEAR: "text-ok", REVIEW: "text-warn", REFUSE: "text-bad", BLACKLISTED: "text-bad",
+};
+
+function money(n: number): string {
+  return "$" + Math.round(n).toLocaleString();
+}
+
+function tagFor(r: DeskRow): string {
+  // `ghost` is the legacy key on the desk payload — the agent that fills it is
+  // Verifier, and no user-facing string says otherwise.
+  const gv = r.ghost?.verdict;
+  return r.blacklisted ? "FLAGGED" : r.kill ? "KILL" : gv === "REFUSE" ? "RISK" : r.hot ? "TOP" : "PASS";
+}
 
 export function Desk({ trace, connected, deskFromStream }: {
   trace: TraceEvent[]; connected: boolean; deskFromStream: DeskData | null;
@@ -53,7 +97,7 @@ export function Desk({ trace, connected, deskFromStream }: {
 
   const selRow = desk?.rows.find((r) => r.id === sel) ?? null;
 
-  // client-side deal math mirrors the backend Margin computation
+  // client-side deal math mirrors the profit test Finder runs on the backend
   const m = useMemo(() => {
     if (!edit) return null;
     const total = edit.mi + edit.dh;
@@ -94,7 +138,7 @@ export function Desk({ trace, connected, deskFromStream }: {
   async function doBook() {
     if (!selRow || !edit) return;
     await api.book(selRow.id, Math.round(edit.rate));
-    setRuns((rs) => [{ id: selRow.id, broker: selRow.broker, stage: "Dispatch", day: 0, amount: Math.round(edit.rate), status: "on track", tone: "neutral" }, ...rs]);
+    setRuns((rs) => [{ id: selRow.id, broker: selRow.broker, stage: "Dispatch", day: 0, amount: Math.round(edit.rate), status: "on track" }, ...rs]);
   }
   async function doRefuse() {
     if (!selRow) return;
@@ -102,196 +146,358 @@ export function Desk({ trace, connected, deskFromStream }: {
     await load();
   }
 
-  if (!desk) return <div style={{ padding: 40, color: C.muted }}>Loading desk…</div>;
+  if (!desk) {
+    return (
+      <div className="flex h-full flex-col gap-3 overflow-y-auto p-4 sm:p-5">
+        <Skeleton className="h-9 w-44" />
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-22 w-full" />)}
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   const flagged = desk.rows.filter((r) => r.blacklisted).length;
-  const gTone = selRow?.ghost ? verdictTone(selRow.ghost.verdict) : "neutral";
 
   return (
-    <div style={{ padding: "16px 22px 26px", display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* header */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 12, color: C.muted }}>Home / <span style={{ color: C.slate }}>Desk</span></div>
-          <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-.025em", marginTop: 1 }}>Load board</div>
-        </div>
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto", alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "7px 11px", fontSize: 12.5, color: C.body }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16A34A" }} />
-            Scout pulled {desk.pulled} · showing {rows.length}
-          </div>
-          <Btn onClick={doScan} disabled={busy}>Re-scan</Btn>
-          <Btn kind="primary" onClick={doReset} disabled={busy}>Reset desk</Btn>
-        </div>
-      </div>
-
-      {/* stat tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10 }}>
-        <Tile k="Margin kills" v={String(desk.kills)} sub={`of ${desk.pulled} pulled`} />
-        <Tile k="Best RPM after cost" v={`$${desk.best_rpm.toFixed(2)}`} sub={`floor $${desk.floor_rpm.toFixed(2)}`} />
-        <Tile k="Brokers flagged" v={String(flagged)} sub={flagged ? "filtered next scan" : "none this session"} accent={flagged > 0} />
-        <Tile k="Detention rate" v={`$${desk.detention.rate_per_hour}/hr`} sub={`after ${desk.detention.free_hours}h free`} accent />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 392px", gap: 12 }} className="desk-grid">
-        {/* LEFT */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-          {/* candidates */}
-          <Card>
-            <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: `1px solid ${C.hair}` }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Candidates</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: "auto" }}>
-                {FILTERS.map((f) => (
-                  <button key={f} onClick={() => setFilter(f)} style={{
-                    border: `1px solid ${filter === f ? C.black : C.border}`, background: filter === f ? C.black : "#fff",
-                    color: filter === f ? "#fff" : C.body, borderRadius: 999, padding: "5px 11px", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap",
-                  }}>{f}</button>
-                ))}
-              </div>
+    // Breakpoints do the responding, never a measured width: stacked cards is the
+    // default and the six-column table is the lg-and-up upgrade.
+    <div className="h-full overflow-x-hidden overflow-y-auto px-4 pt-4 pb-24 sm:px-5 lg:px-6">
+      <div className="flex flex-col gap-3">
+        {/* header */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">
+              Home / <span className="text-foreground/80">Desk</span>
             </div>
-            <div style={{ overflowX: "auto" }}>
-              <div style={{ minWidth: 640 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1.6fr .9fr .7fr .7fr .8fr 1fr", gap: 8, padding: "8px 14px", borderBottom: `1px solid ${C.hair}`, background: C.faint }}>
-                  {COLS.map((c) => (
-                    <button key={c.key} onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? -s.dir : (c.key === "rpm" ? -1 : 1) }))}
-                      style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: ".04em", color: sort.key === c.key ? C.ink : C.muted, textAlign: c.align, padding: 0 }}>
-                      {c.label}{sort.key === c.key ? (sort.dir > 0 ? " ↑" : " ↓") : ""}
-                    </button>
+            <h1 className="mt-0.5 text-2xl font-semibold tracking-[-0.025em] sm:text-[26px]">Load board</h1>
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+            <Badge
+              variant="outline"
+              className="h-11 gap-2 rounded-lg px-3 text-[12.5px] font-normal text-foreground/80 sm:h-9"
+            >
+              <span className="size-1.5 shrink-0 rounded-full bg-ok" />
+              Finder pulled {desk.pulled} · showing {rows.length}
+            </Badge>
+            {/* Re-scan is the routine action, reset wipes the session — the loud
+                orange belongs to the one you actually want pressed. */}
+            <Button size="tap" onClick={doScan} disabled={busy} className="flex-1 sm:flex-none">
+              <RefreshCw className={cn("size-4", busy && "animate-spin")} />
+              Re-scan
+            </Button>
+            <Button variant="outline" size="tap" onClick={doReset} disabled={busy} className="flex-1 sm:flex-none">
+              <RotateCcw className="size-4" />
+              Reset desk
+            </Button>
+          </div>
+        </div>
+
+        {/* stat tiles */}
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          <Tile k="Killed on cost" v={String(desk.kills)} sub={`of ${desk.pulled} pulled`} />
+          <Tile k="Best RPM after cost" v={`$${desk.best_rpm.toFixed(2)}`} sub={`floor $${desk.floor_rpm.toFixed(2)}`} />
+          <Tile k="Brokers flagged" v={String(flagged)} sub={flagged ? "filtered next scan" : "none this session"} accent={flagged > 0} />
+          <Tile k="Detention rate" v={`$${desk.detention.rate_per_hour}/hr`} sub={`after ${desk.detention.free_hours}h free`} accent />
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+          {/* LEFT */}
+          <div className="flex min-w-0 flex-col gap-3">
+            {/* candidates */}
+            <Card className="gap-0 py-0">
+              <CardHeader className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+                <CardTitle className="text-[13px] font-semibold">Candidates</CardTitle>
+                <div className="flex w-full flex-wrap gap-1.5 sm:ml-auto sm:w-auto">
+                  {FILTERS.map((f) => (
+                    <Button
+                      key={f}
+                      size="sm"
+                      variant={filter === f ? "default" : "outline"}
+                      onClick={() => setFilter(f)}
+                      className="min-h-11 rounded-full px-3.5 text-[12.5px] lg:min-h-0"
+                    >
+                      {f}
+                    </Button>
                   ))}
                 </div>
-                {rows.map((r) => <CandidateRow key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} />)}
-              </div>
-            </div>
-          </Card>
+              </CardHeader>
 
-          {/* deal desk */}
-          {selRow && edit && m && (
-            <Card>
-              <div style={{ padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap", borderBottom: `1px solid ${C.hair}` }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 11.5, color: C.muted }}>Deal desk</div>
-                  <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-.015em", marginTop: 1 }}>{selRow.origin} → {selRow.dest} · {selRow.eq}</div>
-                  <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>{selRow.broker} · {selRow.mc}</div>
-                </div>
-                <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                  <div style={{ fontSize: 11.5, color: C.muted }}>Net after cost</div>
-                  <div className="mono" style={{ fontSize: 22, fontWeight: 500, color: m.net > 0 ? C.ink : "#DC2626" }}>{money(m.net)}</div>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(108px,1fr))", borderBottom: `1px solid ${C.border}` }}>
-                <Input k="RATE" pre="$" val={edit.rate} step={25} onCh={(v) => setEdit({ ...edit, rate: v })} />
-                <Input k="DEADHEAD" val={edit.dh} step={1} suf="mi" onCh={(v) => setEdit({ ...edit, dh: v })} />
-                <Input k="LOADED" val={edit.mi} step={1} suf="mi" onCh={(v) => setEdit({ ...edit, mi: v })} />
-                <Input k="DIESEL" pre="$" val={edit.diesel} step={0.01} suf="/gal" onCh={(v) => setEdit({ ...edit, diesel: v })} />
-                <Input k="MPG" val={edit.mpg} step={0.1} onCh={(v) => setEdit({ ...edit, mpg: v })} />
-                <Input k="FLOOR" pre="$" val={edit.floor} step={0.05} onCh={(v) => setEdit({ ...edit, floor: v })} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(108px,1fr))", borderBottom: `1px solid ${C.border}`, background: C.faint }}>
-                <Derived k="FUEL COST" v={money(m.fuel)} />
-                <Derived k="FIXED COST" v={money(m.fixed)} />
-                <Derived k="RPM AFTER COST" v={`$${m.rpm.toFixed(2)}`} fg={m.rpm >= edit.floor ? "#15803D" : "#DC2626"} />
-                <Derived k="VS LANE" v={`${selRow.lane_avg ? (((edit.rate / edit.mi - selRow.lane_avg) / selRow.lane_avg) * 100 >= 0 ? "+" : "") + (((edit.rate / edit.mi - selRow.lane_avg) / selRow.lane_avg) * 100).toFixed(0) : "0"}%`} fg={edit.rate / edit.mi >= selRow.lane_avg ? "#15803D" : "#B45309"} />
-                <Derived k="DRIVE TIME" v={`${m.drive.toFixed(1)}h`} fg={m.sameDay ? "#15803D" : m.hosOk ? "#B45309" : "#DC2626"} />
-                <Derived k="HOS" v={m.sameDay ? "legal today" : m.hosOk ? "needs reset" : "illegal"} fg={m.sameDay ? "#15803D" : m.hosOk ? "#B45309" : "#DC2626"} />
-              </div>
-              <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-                <Btn kind="primary" onClick={doBook} disabled={busy || (selRow.ghost?.verdict === "REFUSE" || selRow.blacklisted)}>
-                  {selRow.blacklisted ? "Blocked" : selRow.ghost?.verdict === "REFUSE" ? "Override & book" : "Book load"}
-                </Btn>
-                <Btn onClick={doBook}>Counter & book</Btn>
-                <Btn kind="danger" onClick={doRefuse}>Refuse &amp; flag broker</Btn>
-                <div style={{ marginLeft: "auto", fontSize: 11.5, color: C.muted, textAlign: "right" }}>
-                  {selRow.ghost?.verdict === "REFUSE" ? `${selRow.ghost.failed} Ghost checks failed` : "Driver approves by voice before rate con goes out"}
+              {/* narrow: stacked load cards, echoing the driver app */}
+              <CardContent className="flex flex-col gap-2.5 py-3 lg:hidden">
+                {rows.length === 0 && (
+                  <div className="py-6 text-center text-xs text-muted-foreground">
+                    Nothing matches this filter.
+                  </div>
+                )}
+                {rows.map((r) => (
+                  <CandidateCard key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} />
+                ))}
+              </CardContent>
+
+              {/* lg and up: the six-column desk table */}
+              <div className="hidden overflow-x-auto lg:block">
+                <div className="min-w-[560px]">
+                  <div className={cn(TABLE_COLS, "border-b border-border bg-muted/40 px-4 py-2")}>
+                    {COLS.map((c) => (
+                      <button
+                        key={c.key}
+                        onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? -s.dir : (c.key === "rpm" ? -1 : 1) }))}
+                        className={cn(
+                          "text-[10.5px] font-semibold tracking-[0.04em]",
+                          c.align === "right" ? "text-right" : "text-left",
+                          sort.key === c.key ? "text-foreground" : "text-muted-foreground",
+                        )}
+                      >
+                        {c.label}{sort.key === c.key ? (sort.dir > 0 ? " ↑" : " ↓") : ""}
+                      </button>
+                    ))}
+                  </div>
+                  {rows.map((r) => (
+                    <CandidateRow key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} />
+                  ))}
                 </div>
               </div>
             </Card>
-          )}
 
-          {/* active runs */}
-          <Card>
-            <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", borderBottom: `1px solid ${C.hair}` }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Active runs</div>
-              <div style={{ marginLeft: "auto", fontSize: 11.5, color: C.muted }}>{runs.length} open · book a load to start one</div>
-            </div>
-            {runs.length === 0 ? (
-              <div style={{ padding: "14px", fontSize: 12, color: C.muted }}>No active runs. Book a load or ask Yard Boss to run a scenario — Mile Marker and Payday advance it over simulated days in the trace.</div>
-            ) : runs.map((r) => (
-              <div key={r.id} style={{ display: "grid", gridTemplateColumns: "1.3fr 1.3fr 1fr .8fr 1fr", gap: 8, padding: "9px 14px", borderBottom: `1px solid ${C.hair}` }}>
-                <div className="mono" style={{ fontSize: 12 }}>{r.id}</div>
-                <div style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.broker}</div>
-                <div style={{ fontSize: 12, color: C.slate }}>{r.stage}</div>
-                <div className="mono" style={{ fontSize: 12, textAlign: "right" }}>{money(r.amount)}</div>
-                <div style={{ textAlign: "right" }}><Pill tone="neutral">{r.status}</Pill></div>
-              </div>
-            ))}
-          </Card>
-        </div>
+            {/* deal desk */}
+            {selRow && edit && m && (
+              <Card className="gap-0 py-0">
+                <CardHeader className="flex flex-wrap items-start gap-3 border-b border-border px-4 py-3.5">
+                  <div className="min-w-0">
+                    <div className="text-[11.5px] text-muted-foreground">Deal desk</div>
+                    <CardTitle className="mt-0.5 text-base font-semibold tracking-[-0.015em] break-words">
+                      {selRow.origin} → {selRow.dest} · {selRow.eq}
+                    </CardTitle>
+                    <div className="mt-0.5 text-xs text-muted-foreground break-words">
+                      {selRow.broker} · {selRow.mc}
+                    </div>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <div className="text-[11.5px] text-muted-foreground">Net after cost</div>
+                    <div className={cn("num text-[22px] font-medium", m.net > 0 ? "text-foreground" : "text-bad")}>
+                      {money(m.net)}
+                    </div>
+                  </div>
+                </CardHeader>
 
-        {/* RIGHT */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-          {selRow && <GhostPanel row={selRow} tone={gTone} />}
-          <Trace trace={trace} connected={connected} height={440} />
+                <CardContent className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3 lg:grid-cols-6">
+                  <NumField k="RATE" pre="$" val={edit.rate} step={25} onCh={(v) => setEdit({ ...edit, rate: v })} />
+                  <NumField k="DEADHEAD" val={edit.dh} step={1} suf="mi" onCh={(v) => setEdit({ ...edit, dh: v })} />
+                  <NumField k="LOADED" val={edit.mi} step={1} suf="mi" onCh={(v) => setEdit({ ...edit, mi: v })} />
+                  <NumField k="DIESEL" pre="$" val={edit.diesel} step={0.01} suf="/gal" onCh={(v) => setEdit({ ...edit, diesel: v })} />
+                  <NumField k="MPG" val={edit.mpg} step={0.1} onCh={(v) => setEdit({ ...edit, mpg: v })} />
+                  <NumField k="FLOOR" pre="$" val={edit.floor} step={0.05} onCh={(v) => setEdit({ ...edit, floor: v })} />
+                </CardContent>
+
+                <Separator />
+
+                <CardContent className="grid grid-cols-2 gap-2 py-3 sm:grid-cols-3 lg:grid-cols-6">
+                  <Derived k="FUEL COST" v={money(m.fuel)} />
+                  <Derived k="FIXED COST" v={money(m.fixed)} />
+                  <Derived k="RPM AFTER COST" v={`$${m.rpm.toFixed(2)}`} fg={m.rpm >= edit.floor ? "text-ok" : "text-bad"} />
+                  <Derived
+                    k="VS LANE"
+                    v={`${selRow.lane_avg ? (((edit.rate / edit.mi - selRow.lane_avg) / selRow.lane_avg) * 100 >= 0 ? "+" : "") + (((edit.rate / edit.mi - selRow.lane_avg) / selRow.lane_avg) * 100).toFixed(0) : "0"}%`}
+                    fg={edit.rate / edit.mi >= selRow.lane_avg ? "text-ok" : "text-warn"}
+                  />
+                  <Derived k="DRIVE TIME" v={`${m.drive.toFixed(1)}h`} fg={m.sameDay ? "text-ok" : m.hosOk ? "text-warn" : "text-bad"} />
+                  <Derived k="HOS" v={m.sameDay ? "legal today" : m.hosOk ? "needs reset" : "illegal"} fg={m.sameDay ? "text-ok" : m.hosOk ? "text-warn" : "text-bad"} />
+                </CardContent>
+
+                <Separator />
+
+                <CardContent className="flex flex-wrap items-center gap-2 py-3">
+                  <Button
+                    size="tap"
+                    onClick={doBook}
+                    disabled={busy || selRow.ghost?.verdict === "REFUSE" || selRow.blacklisted}
+                    className="flex-1 sm:flex-none"
+                  >
+                    {selRow.blacklisted ? "Blocked" : selRow.ghost?.verdict === "REFUSE" ? "Override & book" : "Book load"}
+                  </Button>
+                  <Button variant="outline" size="tap" onClick={doBook} className="flex-1 sm:flex-none">
+                    Counter & book
+                  </Button>
+                  <Button variant="destructive" size="tap" onClick={doRefuse} className="flex-1 sm:flex-none">
+                    Refuse &amp; flag broker
+                  </Button>
+                  <div className="w-full text-[11.5px] text-muted-foreground sm:ml-auto sm:w-auto sm:text-right">
+                    {selRow.ghost?.verdict === "REFUSE"
+                      ? `${selRow.ghost.failed} verification checks failed`
+                      : "Driver approves by voice before rate con goes out"}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* active runs */}
+            <Card className="gap-0 py-0">
+              <CardHeader className="flex items-center gap-2 border-b border-border px-4 py-3">
+                <CardTitle className="text-[13px] font-semibold">Active runs</CardTitle>
+                <div className="ml-auto text-right text-[11.5px] text-muted-foreground">
+                  {runs.length} open · book a load to start one
+                </div>
+              </CardHeader>
+              {runs.length === 0 ? (
+                <CardContent className="py-3.5 text-xs leading-relaxed text-muted-foreground">
+                  No active runs. Book a load or ask Yard Boss to run a scenario — Closer and Payday
+                  advance it over simulated days in the trace.
+                </CardContent>
+              ) : (
+                runs.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 last:border-b-0"
+                  >
+                    <span className="mono text-xs">{r.id}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs">{r.broker}</span>
+                    <span className="text-xs text-foreground/80">{r.stage}</span>
+                    <span className="num text-xs">{money(r.amount)}</span>
+                    <Badge variant="outline" className="text-muted-foreground">{r.status}</Badge>
+                  </div>
+                ))
+              )}
+            </Card>
+          </div>
+
+          {/* RIGHT */}
+          <div className="flex min-w-0 flex-col gap-3">
+            {selRow && <ScreeningPanel row={selRow} />}
+            <Trace trace={trace} connected={connected} height={440} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function CandidateRow({ r, on, floor, onClick }: { r: DeskRow; on: boolean; floor: number; onClick: () => void }) {
-  const gv = r.ghost?.verdict;
-  const tag = r.blacklisted ? "FLAGGED" : r.kill ? "KILL" : gv === "REFUSE" ? "GHOST RISK" : r.hot ? "TOP" : "PASS";
-  const tagTone = tag === "PASS" ? "neutral" : tag === "TOP" ? "green" : tag === "KILL" ? "neutral" : "red";
+/** Narrow-screen load card: the same shape the driver sees on the phone —
+ *  big rate, lane, miles and $/mi, one verdict badge. */
+function CandidateCard({ r, on, floor, onClick }: { r: DeskRow; on: boolean; floor: number; onClick: () => void }) {
+  const tag = tagFor(r);
+  const rpmCls = !r.rate ? "text-muted-foreground" : r.rpm >= floor ? "text-ok" : "text-bad";
   return (
-    <button onClick={onClick} style={{
-      display: "grid", gridTemplateColumns: "1.6fr .9fr .7fr .7fr .8fr 1fr", gap: 8, padding: "9px 14px", width: "100%", textAlign: "left",
-      borderBottom: `1px solid ${C.hair}`, background: on ? "#FFF7ED" : "#fff", borderLeft: `3px solid ${on ? "#F97316" : "transparent"}`, opacity: r.kill ? 0.6 : 1,
-    }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.origin} → {r.dest}</div>
-        <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.broker} · {r.src}</div>
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full rounded-xl border p-4 text-left transition-colors",
+        on ? "border-primary/60 bg-primary/8" : "border-border bg-muted/20 hover:bg-muted/40",
+        r.kill && "opacity-65",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className={cn("text-[10px] tracking-[0.06em]", TAG_CLS[tag])}>{tag}</Badge>
+        <span className="ml-auto truncate text-xs text-muted-foreground">{r.eq}</span>
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div className="mono" style={{ fontSize: 12 }}>{r.rate ? money(r.rate) : "call"}</div>
-        <div style={{ fontSize: 10.5, color: C.muted }}>{r.posted_min < 60 ? `${r.posted_min}m ago` : `${Math.round(r.posted_min / 60)}h ago`}</div>
+
+      <div
+        className={cn(
+          "num mt-2.5 text-[30px] leading-none font-semibold tracking-[-0.035em]",
+          r.kill ? "text-muted-foreground line-through" : "text-foreground",
+        )}
+      >
+        {r.rate ? money(r.rate) : "call"}
       </div>
-      <div className="mono" style={{ fontSize: 12, textAlign: "right" }}>{r.deadhead}</div>
-      <div className="mono" style={{ fontSize: 12, textAlign: "right" }}>{r.miles}</div>
-      <div className="mono" style={{ fontSize: 12.5, textAlign: "right", color: !r.rate ? C.muted : r.rpm >= floor ? "#15803D" : "#DC2626" }}>{r.rate ? `$${r.rpm.toFixed(2)}` : "—"}</div>
-      <div style={{ textAlign: "right", minWidth: 0 }}>
-        <Pill tone={tagTone as any}>{tag}</Pill>
-        <div style={{ fontSize: 10.5, color: C.muted, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {r.kill || (gv === "REFUSE" ? `${r.ghost?.failed} checks failed` : `lane $${r.lane_avg.toFixed(2)}`)}
+      <div className="mt-2 text-[15px] font-medium break-words">{r.origin} → {r.dest}</div>
+      <div className="mt-1 text-[13px] text-muted-foreground">
+        {Math.round(r.miles)} miles · <span className={rpmCls}>{r.rate ? `$${r.rpm.toFixed(2)}` : "—"}</span> a mile · {r.deadhead} mi deadhead
+      </div>
+
+      <Separator className="my-3" />
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <span className="min-w-0 truncate">{r.broker} · {r.src}</span>
+        <span className="ml-auto shrink-0">
+          {r.kill || (tag === "RISK" ? `${r.ghost?.failed} checks failed` : `lane $${r.lane_avg.toFixed(2)}`)}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+/** lg-and-up table row. Same data, dense. */
+function CandidateRow({ r, on, floor, onClick }: { r: DeskRow; on: boolean; floor: number; onClick: () => void }) {
+  const tag = tagFor(r);
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        TABLE_COLS,
+        "w-full border-b border-l-[3px] border-border px-4 py-2.5 text-left transition-colors",
+        on ? "border-l-primary bg-primary/8" : "border-l-transparent hover:bg-muted/30",
+        r.kill && "opacity-60",
+      )}
+    >
+      <div className="min-w-0">
+        <div className="truncate text-[12.5px] font-medium">{r.origin} → {r.dest}</div>
+        <div className="truncate text-[11px] text-muted-foreground">{r.broker} · {r.src}</div>
+      </div>
+      <div className="min-w-0">
+        <div className="num text-xs">{r.rate ? money(r.rate) : "call"}</div>
+        <div className="text-[10.5px] text-muted-foreground">
+          {r.posted_min < 60 ? `${r.posted_min}m ago` : `${Math.round(r.posted_min / 60)}h ago`}
+        </div>
+      </div>
+      <div className="num text-right text-xs">{r.deadhead}</div>
+      <div className="num text-right text-xs">{r.miles}</div>
+      <div
+        className={cn(
+          "num text-right text-[12.5px]",
+          !r.rate ? "text-muted-foreground" : r.rpm >= floor ? "text-ok" : "text-bad",
+        )}
+      >
+        {r.rate ? `$${r.rpm.toFixed(2)}` : "—"}
+      </div>
+      <div className="min-w-0 text-right">
+        <Badge variant="outline" className={cn("text-[10px] tracking-[0.06em]", TAG_CLS[tag])}>{tag}</Badge>
+        <div className="mt-1 truncate text-[10.5px] text-muted-foreground">
+          {r.kill || (tag === "RISK" ? `${r.ghost?.failed} checks failed` : `lane $${r.lane_avg.toFixed(2)}`)}
         </div>
       </div>
     </button>
   );
 }
 
-function GhostPanel({ row, tone }: { row: DeskRow; tone: string }) {
-  const t = TONE[tone as keyof typeof TONE] ?? TONE.neutral;
+/** Verifier's broker screen. The payload key is still `ghost` for backwards
+ *  compatibility; nothing a user reads says so. */
+function ScreeningPanel({ row }: { row: DeskRow }) {
   const g = row.ghost;
+  const v = g?.verdict ?? "";
+  const score = Math.min(100, g?.score ?? 0);
   return (
-    <Card>
-      <div style={{ padding: "13px 15px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.hair}` }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Ghost screening</div>
-          <div style={{ fontSize: 11.5, color: C.muted, marginTop: 1 }}>{row.mc} · {row.broker}</div>
+    <Card className="gap-0 py-0">
+      <CardHeader className="flex items-center gap-2.5 border-b border-border px-4 py-3.5">
+        <div className="min-w-0">
+          <CardTitle className="text-[13px] font-semibold">Broker screening</CardTitle>
+          <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">{row.mc} · {row.broker}</div>
         </div>
-        <div style={{ marginLeft: "auto" }}><Pill tone={tone as any} style={{ fontSize: 11.5, padding: "4px 11px" }}>{g?.verdict ?? "—"}</Pill></div>
-      </div>
-      <div style={{ padding: "12px 15px 10px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <div style={{ fontSize: 11.5, color: C.sub }}>Risk score</div>
-          <div className="mono" style={{ fontSize: 15, color: t.fg }}>{g?.score ?? 0} / 100</div>
+        <Badge
+          variant="outline"
+          className={cn("ml-auto shrink-0 h-6 px-2.5 text-[11.5px]", VERDICT_CLS[v] ?? "text-muted-foreground")}
+        >
+          {g?.verdict ?? "—"}
+        </Badge>
+      </CardHeader>
+
+      <CardContent className="py-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-[11.5px] text-foreground/80">Risk score</span>
+          <span className={cn("num text-[15px]", VERDICT_INK[v] ?? "text-muted-foreground")}>
+            {g?.score ?? 0} / 100
+          </span>
         </div>
-        <div style={{ height: 6, background: C.hair, borderRadius: 3, marginTop: 6, overflow: "hidden" }}>
-          <div style={{ height: 6, width: `${Math.min(100, g?.score ?? 0)}%`, background: t.fg, borderRadius: 3 }} />
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+          {/* the one genuinely computed value on this card */}
+          <div className={cn("h-full rounded-full", VERDICT_BAR[v] ?? "bg-muted-foreground")} style={{ width: `${score}%` }} />
         </div>
-      </div>
-      <div style={{ padding: "11px 15px", background: C.faint, borderTop: `1px solid ${C.hair}`, fontSize: 11.5, color: C.slate, lineHeight: 1.5 }}>
-        {g?.verdict === "REFUSE"
-          ? `${g.failed} of 7 checks failed — Ghost queried FMCSA, RDAP and the memory graph. Refuse to blacklist this broker and its shell-ring neighbours.`
-          : g?.verdict === "CLEAR"
+      </CardContent>
+
+      <div className="border-t border-border bg-muted/40 px-4 py-3 text-[11.5px] leading-relaxed text-foreground/80">
+        {v === "REFUSE"
+          ? `${g?.failed} of 7 checks failed — Verifier queried FMCSA, RDAP and the memory graph. Refuse to blacklist this broker and its shell-ring neighbours.`
+          : v === "CLEAR"
           ? "Clean: active authority, insurance on file, no phone or ACH collisions, pays on time."
           : "Select a candidate to see the full seven-check screen and evidence in the live trace."}
       </div>
@@ -301,37 +507,43 @@ function GhostPanel({ row, tone }: { row: DeskRow; tone: string }) {
 
 function Tile({ k, v, sub, accent }: { k: string; v: string; sub: string; accent?: boolean }) {
   return (
-    <div style={{ background: accent ? "#FFF7ED" : "#fff", border: `1px solid ${accent ? "#FED7AA" : C.border}`, borderRadius: 11, padding: "12px 14px" }}>
-      <div style={{ fontSize: 12, color: C.slate }}>{k}</div>
-      <div style={{ fontSize: 23, fontWeight: 600, letterSpacing: "-.02em", color: accent ? C.orange : C.ink, marginTop: 3 }}>{v}</div>
-      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{sub}</div>
-    </div>
+    <Card
+      size="sm"
+      className={cn("gap-0 px-3.5 py-3", accent && "bg-primary/8 ring-primary/25")}
+    >
+      <div className="text-xs text-foreground/80">{k}</div>
+      <div className={cn("num mt-1 text-[22px] font-semibold tracking-[-0.02em]", accent && "text-primary")}>{v}</div>
+      <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
+    </Card>
   );
 }
 
-function Input({ k, val, onCh, step, pre, suf }: { k: string; val: number; onCh: (v: number) => void; step: number; pre?: string; suf?: string }) {
+function NumField({ k, val, onCh, step, pre, suf }: {
+  k: string; val: number; onCh: (v: number) => void; step: number; pre?: string; suf?: string;
+}) {
   return (
-    <div style={{ padding: "9px 13px", borderLeft: `1px solid ${C.border}`, marginLeft: -1, minWidth: 0 }}>
-      <div style={{ fontSize: 10.5, color: C.muted }}>{k}</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 3, marginTop: 2 }}>
-        {pre && <span className="mono" style={{ fontSize: 12, color: C.muted }}>{pre}</span>}
-        <input type="number" value={val} step={step} onChange={(e) => onCh(parseFloat(e.target.value) || 0)}
-          className="mono" style={{ width: "100%", minWidth: 0, border: "none", background: "transparent", fontSize: 14, color: C.ink, padding: 0 }} />
-        {suf && <span className="mono" style={{ fontSize: 11, color: C.muted }}>{suf}</span>}
-      </div>
-    </div>
+    <label className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-border px-3 py-1.5">
+      <span className="text-[10.5px] text-muted-foreground">{k}</span>
+      <span className="flex items-baseline gap-1">
+        {pre && <span className="mono shrink-0 text-xs text-muted-foreground">{pre}</span>}
+        <Input
+          type="number"
+          value={val}
+          step={step}
+          onChange={(e) => onCh(parseFloat(e.target.value) || 0)}
+          className="mono h-9 min-w-0 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0 dark:bg-transparent"
+        />
+        {suf && <span className="mono shrink-0 text-[11px] text-muted-foreground">{suf}</span>}
+      </span>
+    </label>
   );
 }
 
 function Derived({ k, v, fg }: { k: string; v: string; fg?: string }) {
   return (
-    <div style={{ padding: "9px 13px", borderLeft: `1px solid ${C.border}`, marginLeft: -1, minWidth: 0 }}>
-      <div style={{ fontSize: 10.5, color: C.muted }}>{k}</div>
-      <div className="mono" style={{ fontSize: 13.5, color: fg ?? C.ink, marginTop: 3 }}>{v}</div>
+    <div className="flex min-w-0 flex-col rounded-lg border border-border bg-muted/40 px-3 py-2">
+      <span className="text-[10.5px] text-muted-foreground">{k}</span>
+      <span className={cn("num mt-1 truncate text-[13.5px]", fg ?? "text-foreground")}>{v}</span>
     </div>
   );
-}
-
-function verdictTone(v: string): string {
-  return v === "CLEAR" ? "green" : v === "REVIEW" ? "amber" : v === "REFUSE" || v === "BLACKLISTED" ? "red" : "neutral";
 }

@@ -1,65 +1,121 @@
 import { useEffect, useRef } from "react";
-import type { TraceEvent } from "../api";
-import { C, TONE } from "../theme";
-import { BackendTag } from "./ui";
+import type { TraceEvent } from "@/api";
+import { cn } from "@/lib/utils";
+import { BackendTag } from "@/components/BackendTag";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Keyed on the agent id the backend sends (uppercase), not the display name —
+// the fleet is these five. Every value clears 4.5:1 on the card.
 const AGENT_FG: Record<string, string> = {
-  "Yard Boss": "#57534E", Scout: "#57534E", Margin: "#0369A1", Ghost: "#EA580C",
-  Handshake: "#7C3AED", "Fine Print": "#B45309", "Mile Marker: ": "#0891B2",
-  "Mile Marker": "#0891B2", Payday: "#15803D", Gateway: "#DC2626",
-  "Model Armor": "#B45309", Gmail: "#78716C",
+  "YARD BOSS": "text-[#fdba74]",
+  FINDER: "text-[#60a5fa]",
+  VERIFIER: "text-ok",
+  CLOSER: "text-[#c084fc]",
+  PAYDAY: "text-warn",
+};
+// Gateway / Gmail / Model Armor and anything else the platform emits: readable,
+// just not one of the five.
+const INFRA_FG = "text-muted-foreground";
+
+// The backend sends a handful of aliases for the same three verdict colours.
+const TONE_ROW: Record<string, string> = {
+  pass: "bg-ok/10", green: "bg-ok/10",
+  warn: "bg-warn/10", amber: "bg-warn/10", block: "bg-warn/10",
+  fail: "bg-bad/10", red: "bg-bad/10",
+};
+const TONE_FG: Record<string, string> = {
+  pass: "text-ok", green: "text-ok",
+  warn: "text-warn", amber: "text-warn", block: "text-warn",
+  fail: "text-bad", red: "text-bad",
 };
 
-export function Trace({ trace, connected, height = 460 }: { trace: TraceEvent[]; connected: boolean; height?: number | string }) {
+export function Trace({ trace, connected, height = 460 }: {
+  trace: TraceEvent[]; connected: boolean; height?: number | string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    // Scroll the ScrollArea's own viewport, never an ancestor — pinning the log
+    // to the newest line must not drag the page under it.
+    const vp = ref.current?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    if (vp) vp.scrollTop = vp.scrollHeight;
   }, [trace.length]);
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden", maxHeight: height, minHeight: 220 }}>
-      <div style={{ padding: "12px 15px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.hair}` }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>Live trace</div>
-        <span style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", fontSize: 11, color: C.muted }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: connected ? "#16A34A" : "#DC2626" }} />
+    // maxHeight is the one genuinely dynamic value here: callers pass px or a
+    // calc() string, so it cannot be a utility class.
+    <Card className="min-h-55 gap-0 py-0" style={{ maxHeight: height }}>
+      <CardHeader className="flex shrink-0 items-center gap-2.5 border-b border-border px-4 py-3">
+        <CardTitle className="text-[13px] font-semibold">Live trace</CardTitle>
+        <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className={cn("size-1.5 shrink-0 rounded-full", connected ? "bg-ok" : "bg-bad")} />
           {connected ? "streaming" : "offline"} · {trace.length}
         </span>
-      </div>
-      <div ref={ref} style={{ overflowY: "auto", flex: 1 }}>
-        {trace.length === 0 && (
-          <div style={{ padding: "18px 15px", fontSize: 12, color: C.muted, fontFamily: "'Geist Mono',monospace" }}>
-            awaiting fleet activity<span style={{ animation: "blink 1s step-end infinite" }}>_</span>
-          </div>
-        )}
-        {trace.map((e) => {
-          const tone = TONE[(e.tone as keyof typeof TONE) ?? "ok"] ?? TONE.ok;
-          const bg = e.tone && e.tone !== "ok" ? tone.bg : "transparent";
-          const agentFg = AGENT_FG[e.agent ?? ""] ?? "#57534E";
-          return (
-            <div key={e.seq} style={{ display: "flex", gap: 9, padding: "8px 14px", borderBottom: `1px solid ${C.hair}`, background: bg, animation: "rise .22s ease both" }}>
-              <div className="mono" style={{ fontSize: 10, color: "#C3BFBB", paddingTop: 2, flex: "none", width: 52 }}>{e.clock}</div>
-              <div style={{ fontSize: 10.5, fontWeight: 600, color: agentFg, minWidth: 74, paddingTop: 2, flex: "none" }}>{e.agent}</div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div className="mono" style={{ fontSize: 11, lineHeight: 1.5, color: e.tone && e.tone !== "ok" ? tone.fg : C.body, overflowWrap: "break-word" }}>
-                  {e.msg}
-                </div>
-                {(e.backend || e.latency_ms != null) && (
-                  <div style={{ display: "flex", gap: 6, marginTop: 3, alignItems: "center" }}>
-                    {e.tool && <span className="mono" style={{ fontSize: 9.5, color: C.muted }}>{e.tool}</span>}
-                    <BackendTag backend={e.backend} />
-                    {e.latency_ms != null && <span className="mono" style={{ fontSize: 9.5, color: "#D6D3D1" }}>{e.latency_ms}ms</span>}
-                  </div>
-                )}
-              </div>
+      </CardHeader>
+
+      <div ref={ref} className="min-h-0 flex-1">
+        <ScrollArea className="h-full">
+          {trace.length === 0 && (
+            <div className="mono px-4 py-4.5 text-xs text-muted-foreground">
+              awaiting fleet activity<span className="blink">_</span>
             </div>
-          );
-        })}
+          )}
+          {trace.map((e) => {
+            const tone = e.tone ?? "";
+            const id = e.agent ?? "";
+            // agent_name ships alongside agent but predates the TraceEvent type
+            const label = (e as { agent_name?: string }).agent_name || id || "—";
+            return (
+              <div
+                key={e.seq}
+                className={cn(
+                  // Narrow: clock + agent share a line and the message wraps
+                  // beneath them. sm and up: the three fixed columns that read
+                  // as a log.
+                  "flex flex-wrap items-start gap-x-2.5 gap-y-1 border-b border-border px-3 py-2 animate-[rise_0.22s_ease_both] sm:flex-nowrap sm:px-3.5",
+                  TONE_ROW[tone] ?? "",
+                )}
+              >
+                <div className="mono shrink-0 pt-0.5 text-[10px] text-muted-foreground sm:w-13">
+                  {e.clock}
+                </div>
+                <div
+                  className={cn(
+                    "shrink-0 pt-0.5 text-[10.5px] font-semibold break-words sm:w-[74px]",
+                    AGENT_FG[id.toUpperCase()] ?? INFRA_FG,
+                  )}
+                >
+                  {label}
+                </div>
+                <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+                  <div
+                    className={cn(
+                      "mono text-[11px] leading-relaxed break-words",
+                      TONE_FG[tone] ?? "text-foreground/85",
+                    )}
+                  >
+                    {e.msg}
+                  </div>
+                  {(e.backend || e.latency_ms != null) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {e.tool && <span className="mono text-[9.5px] text-muted-foreground">{e.tool}</span>}
+                      <BackendTag backend={e.backend} />
+                      {e.latency_ms != null && (
+                        <span className="mono text-[9.5px] text-muted-foreground">{e.latency_ms}ms</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </ScrollArea>
       </div>
-      <div style={{ padding: "9px 15px", background: C.faint, borderTop: `1px solid ${C.hair}`, fontSize: 11, color: C.muted, display: "flex", justifyContent: "space-between" }}>
+
+      <div className="flex shrink-0 flex-wrap justify-between gap-x-3 gap-y-1 border-t border-border bg-muted/40 px-4 py-2.5 text-[11px] text-muted-foreground">
         <span>Agent Gateway · Identity · Runtime</span>
-        <span>Model Armor <span style={{ color: "#16A34A" }}>inline</span></span>
+        <span>Model Armor <span className="text-ok">inline</span></span>
       </div>
-    </div>
+    </Card>
   );
 }
