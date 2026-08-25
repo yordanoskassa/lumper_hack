@@ -104,7 +104,7 @@ async function jn<T>(r: Response): Promise<T> {
 function deskToDriver(d: Desk, coords: Record<string, [number, number]>): DriverBoard {
   const truckCity: string = d.truck?.city ?? "Joliet IL";
   const [tlat, tlng] = coords[truckCity] ?? [41.525, -88.0834];
-  // Margin already killed the unprofitable ones; the driver should never scroll
+  // Finder already killed the unprofitable ones; the driver should never scroll
   // past them. Blocked brokers stay, because the block is the point.
   const visible = d.rows.filter(
     (r) => !r.kill || r.blacklisted || r.ghost?.verdict === "REFUSE",

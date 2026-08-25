@@ -1,21 +1,30 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
-import { C } from "../theme";
+import { Send } from "lucide-react";
+import { api } from "@/api";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 interface Msg { role: string; text: string }
 
+// Phrases the Yard Boss router resolves even when Gemini is offline and the
+// keyword fallback is doing the routing.
 const SUGGESTIONS = [
   "Scan the board",
-  "Screen MC-1687203",
-  "Book P-90412",
-  "Run the injection scenario",
+  "Check broker MC-1687203",
+  "Run the callback scenario",
+  "Run the detention scenario",
 ];
 
 export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route: string) => void }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [local, setLocal] = useState<Msg[]>([
-    { role: "assistant", text: "Yard Boss here. I route the fleet. Tell me what to run — try a suggestion below." },
+    { role: "assistant", text: "Yard Boss here. I route the fleet — Finder, Verifier, Closer and Payday. Tell me what to run, or tap a suggestion below." },
   ]);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -23,7 +32,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
   const merged = mergeChat(local, chatFeed);
 
   useEffect(() => {
-    const el = ref.current;
+    const el = ref.current?.querySelector<HTMLElement>("[data-slot=scroll-area-viewport]");
     if (el) el.scrollTop = el.scrollHeight;
   }, [merged.length]);
 
@@ -36,7 +45,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
       const r = await api.chat(text);
       setLocal((m) => [...m, { role: "assistant", text: r.reply }]);
       if (r.route) onRoute?.(r.route);
-    } catch (e) {
+    } catch {
       setLocal((m) => [...m, { role: "assistant", text: "backend unreachable — is the server running?" }]);
     } finally {
       setBusy(false);
@@ -44,53 +53,76 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
   }
 
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, flex: 1 }}>
-      <div style={{ padding: "12px 15px", display: "flex", alignItems: "center", gap: 9, borderBottom: `1px solid ${C.hair}` }}>
-        <div style={{ width: 22, height: 22, borderRadius: 6, background: C.faint, color: C.ink, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600 }}>YB</div>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Yard Boss</div>
-          <div style={{ fontSize: 10.5, color: C.muted }}>Orchestrator · Gemini function calling</div>
+    <Card className="flex min-h-0 flex-1 flex-col gap-0 py-0">
+      <div className="flex shrink-0 items-center gap-2.5 px-4 py-3">
+        <Avatar size="sm">
+          <AvatarFallback className="text-[10px] font-semibold">YB</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <div className="text-[13px] font-semibold">Yard Boss</div>
+          <div className="truncate text-[10.5px] text-muted-foreground">
+            Orchestrator · routes the four agents
+          </div>
         </div>
       </div>
+      <Separator />
 
-      <div ref={ref} style={{ flex: 1, overflowY: "auto", padding: "12px 13px", display: "flex", flexDirection: "column", gap: 9, minHeight: 160 }}>
-        {merged.map((m, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-            <div style={{
-              maxWidth: "86%", fontSize: 12.5, lineHeight: 1.5, padding: "8px 11px", borderRadius: 10,
-              background: m.role === "user" ? C.black : C.faint,
-              color: m.role === "user" ? C.ink : C.body,
-              border: m.role === "user" ? "none" : `1px solid ${C.border}`,
-              whiteSpace: "pre-wrap",
-            }}>
-              {m.text}
+      <ScrollArea ref={ref} className="min-h-40 flex-1">
+        <div className="flex flex-col gap-2.5 px-3 py-3">
+          {merged.map((m, i) => (
+            <div key={i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                className={cn(
+                  "max-w-[86%] rounded-lg px-3 py-2 text-[12.5px] leading-relaxed wrap-anywhere whitespace-pre-wrap",
+                  m.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border bg-muted/50 text-foreground/90",
+                )}
+              >
+                {m.text}
+              </div>
             </div>
-          </div>
-        ))}
-        {busy && <div className="mono" style={{ fontSize: 11, color: C.orange, paddingLeft: 4 }}>dispatching<span style={{ animation: "blink 1s step-end infinite" }}>_</span></div>}
-      </div>
+          ))}
+          {busy && (
+            <div className="mono pl-1 text-[11px] text-primary">
+              dispatching<span className="blink">_</span>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
 
-      <div style={{ padding: "8px 11px", display: "flex", gap: 6, flexWrap: "wrap", borderTop: `1px solid ${C.hair}` }}>
+      <Separator />
+      <div className="flex shrink-0 flex-wrap gap-1.5 px-3 py-2">
         {SUGGESTIONS.map((s) => (
-          <button key={s} onClick={() => send(s)} disabled={busy} style={{ fontSize: 11, color: C.body, background: "rgba(255,255,255,.055)", border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 10px" }}>
+          <Button
+            key={s}
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => send(s)}
+            className="h-9 rounded-full text-[11.5px]"
+          >
             {s}
-          </button>
+          </Button>
         ))}
       </div>
 
-      <div style={{ padding: "10px 11px", borderTop: `1px solid ${C.hair}`, display: "flex", gap: 8 }}>
-        <input
+      <Separator />
+      <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+        <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send(input)}
           placeholder="Tell the fleet what to do…"
-          style={{ flex: 1, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", fontSize: 12.5, background: C.faint, color: C.ink }}
+          aria-label="Message Yard Boss"
+          className="h-11 text-[13px]"
         />
-        <button onClick={() => send(input)} disabled={busy} style={{ background: busy ? C.faint : C.orange, color: busy ? C.muted : C.onAccent, borderRadius: 8, padding: "0 15px", fontSize: 12.5, fontWeight: 600 }}>
-          Send
-        </button>
+        <Button size="tap" disabled={busy} onClick={() => send(input)} className="shrink-0">
+          <Send className="size-4" />
+          <span className="sr-only sm:not-sr-only">Send</span>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 

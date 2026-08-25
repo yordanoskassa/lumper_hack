@@ -1,65 +1,115 @@
-import { C } from "../theme";
+import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// The seven working agents as a left-to-right flow with a return arc from
-// Payday back to Ghost/Scout — the closed loop, made literal. The active
-// step glows; on the final step the feedback arc lights up.
+// The four working agents as a left-to-right flow with a return arc from
+// Payday back to Verifier — the closed loop, made literal. Yard Boss is the
+// orchestrator above all four, so it is not a stage here. The active step
+// glows; on the final step the feedback arc lights up.
 const FLOW = [
-  { key: "SCOUT", name: "Scout", short: "hunts" },
-  { key: "MARGIN", name: "Margin", short: "math" },
-  { key: "GHOST", name: "Ghost", short: "fraud" },
-  { key: "HAND", name: "Handshake", short: "deal" },
-  { key: "FINE", name: "Fine Print", short: "audit" },
-  { key: "MILE", name: "Mile Marker", short: "trip" },
-  { key: "PAY", name: "Payday", short: "paid" },
+  { key: "FINDER", name: "Finder", short: "finds it, prices it" },
+  { key: "VERIFIER", name: "Verifier", short: "proves it is real" },
+  { key: "CLOSER", name: "Closer", short: "locks the deal" },
+  { key: "PAYDAY", name: "Payday", short: "gets you paid" },
 ];
 
 export function LoopRing({ active, loopHot }: { active: string[]; loopHot: boolean }) {
   return (
-    <div style={{ position: "relative", padding: "6px 4px 30px" }}>
-      <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+    <div className="flex flex-col gap-3">
+      {/* Two-by-two on a phone, one row from `sm` up — the arrows only exist
+          in the single-row layout, where they mean something. */}
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch sm:gap-0">
         {FLOW.map((a, i) => {
           const on = active.includes(a.key);
-          const isGhost = a.key === "GHOST";
+          const danger = a.key === "VERIFIER";
+          const next = active.includes(FLOW[i + 1]?.key ?? "");
           return (
-            <div key={a.key} style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-              <div style={{
-                flex: 1, minWidth: 0, textAlign: "center", borderRadius: 10, padding: "10px 4px",
-                background: on ? (isGhost ? "#FEF2F2" : "#FFF7ED") : "#fff",
-                border: `1px solid ${on ? (isGhost ? "#FECACA" : "#FED7AA") : C.border}`,
-                boxShadow: on ? "0 2px 10px rgba(234,88,12,.12)" : "none",
-                transition: "all .3s",
-              }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: 7, margin: "0 auto 5px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "'Geist Mono',monospace", fontSize: 11, fontWeight: 600,
-                  background: on ? (isGhost ? "#DC2626" : "#EA580C") : "#F5F5F4",
-                  color: on ? "#fff" : C.muted,
-                }}>{i + 1}</div>
-                <div style={{ fontSize: 11.5, fontWeight: on ? 600 : 500, color: on ? (isGhost ? "#B91C1C" : C.orangeDk) : C.body, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
-                <div style={{ fontSize: 10, color: C.muted }}>{a.short}</div>
+            <div key={a.key} className="sm:flex sm:min-w-0 sm:flex-1 sm:items-center">
+              <div
+                className={cn(
+                  "h-full min-w-0 rounded-lg border px-2 py-2.5 text-center transition-colors sm:flex-1",
+                  on
+                    ? danger
+                      ? "border-bad/40 bg-bad/12"
+                      : "border-primary/40 bg-primary/12"
+                    : "border-border bg-muted/30",
+                )}
+              >
+                <div
+                  className={cn(
+                    "mono mx-auto mb-1.5 flex size-5.5 items-center justify-center rounded-md text-[11px] font-semibold transition-colors",
+                    on
+                      ? danger
+                        ? "bg-bad text-background"
+                        : "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {i + 1}
+                </div>
+                <div
+                  className={cn(
+                    "text-[12px] leading-tight font-semibold break-words",
+                    on ? (danger ? "text-bad" : "text-primary") : "text-foreground/80",
+                  )}
+                >
+                  {a.name}
+                </div>
+                <div className="mt-0.5 text-[10.5px] leading-tight text-balance text-muted-foreground">
+                  {a.short}
+                </div>
               </div>
               {i < FLOW.length - 1 && (
-                <div style={{ flex: "none", width: 16, textAlign: "center", color: on || active.includes(FLOW[i + 1].key) ? C.orange : "#D6D3D1", fontSize: 13 }}>→</div>
+                <ChevronRight
+                  aria-hidden
+                  className={cn(
+                    "hidden size-4 shrink-0 sm:block",
+                    on || next ? "text-primary" : "text-border",
+                  )}
+                />
               )}
             </div>
           );
         })}
       </div>
-      {/* return arc: Payday → back to Ghost, the feedback that closes the loop */}
-      <svg viewBox="0 0 100 12" preserveAspectRatio="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: 26, overflow: "visible" }}>
-        <path d="M 93 1 C 93 9, 36 9, 36 2" fill="none"
-          stroke={loopHot ? "#EA580C" : "#E7E5E4"} strokeWidth={loopHot ? 0.9 : 0.6}
-          strokeDasharray={loopHot ? "0" : "1.5 1.5"} vectorEffect="non-scaling-stroke"
-          markerEnd="url(#arrow)" style={{ transition: "stroke .4s" }} />
+
+      {/* The return arc: Payday feeds Verifier. Drawn only where there is a
+          single row for it to arc across. */}
+      <svg
+        viewBox="0 0 100 10"
+        preserveAspectRatio="none"
+        aria-hidden
+        className="hidden h-4 w-full overflow-visible sm:block"
+      >
         <defs>
-          <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6 Z" fill={loopHot ? "#EA580C" : "#E7E5E4"} />
+          <marker id="loopring-arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+            <path
+              d="M0,0 L6,3 L0,6 Z"
+              className={loopHot ? "fill-primary" : "fill-muted-foreground/50"}
+            />
           </marker>
         </defs>
+        <path
+          d="M 88 1 C 88 9, 38 9, 38 2"
+          fill="none"
+          strokeWidth={loopHot ? 1.1 : 0.7}
+          strokeDasharray={loopHot ? "0" : "1.5 1.5"}
+          vectorEffect="non-scaling-stroke"
+          markerEnd="url(#loopring-arrow)"
+          className={cn(
+            "transition-colors duration-500",
+            loopHot ? "stroke-primary" : "stroke-muted-foreground/50",
+          )}
+        />
       </svg>
-      <div style={{ position: "absolute", bottom: -2, left: 0, right: 0, textAlign: "center", fontSize: 10.5, color: loopHot ? C.orange : C.muted, fontWeight: loopHot ? 600 : 400, transition: "color .4s" }}>
-        Payday teaches Ghost — slow payers become risk scores on the next run
+
+      <div
+        className={cn(
+          "text-center text-[11px] leading-snug text-balance transition-colors duration-500",
+          loopHot ? "font-semibold text-primary" : "text-muted-foreground",
+        )}
+      >
+        Payday teaches Verifier — a broker who stalls on waiting time, or pays slowly, is a
+        risk score on the next run
       </div>
     </div>
   );
