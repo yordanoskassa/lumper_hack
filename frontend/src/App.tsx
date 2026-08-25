@@ -1,24 +1,22 @@
 import { useEffect, useState } from "react";
 import {
-  FileText, LayoutDashboard, MessageSquare, Play, Smartphone, Truck, Users, X,
+  FileText, MessageSquare, Smartphone, Truck, Users, X, type LucideIcon,
 } from "lucide-react";
 import { api, type Desk as DeskData } from "@/api";
 import { useStream } from "@/useStream";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Chat } from "@/components/Chat";
-import { Demo } from "@/views/Demo";
 import { Desk } from "@/views/Desk";
 import { Driver } from "@/views/Driver";
 import { DriverApp } from "@/driver/DriverApp";
 import { Fleet } from "@/views/Fleet";
 import { Registry } from "@/views/Registry";
 
-type View = "driver" | "demo" | "desk" | "fleet" | "registry";
+type View = "driver" | "desk" | "fleet" | "registry";
 
-const NAV: { key: View; label: string; short: string; Icon: typeof Play }[] = [
+const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
   { key: "driver", label: "Driver app", short: "Drive", Icon: Smartphone },
-  { key: "demo", label: "Guided demo", short: "Story", Icon: Play },
   { key: "desk", label: "Live desk", short: "Desk", Icon: Truck },
   { key: "fleet", label: "Fleet", short: "Fleet", Icon: Users },
   { key: "registry", label: "Registry", short: "Agents", Icon: FileText },
@@ -75,7 +73,6 @@ export default function App() {
   const body = (
     <>
       {view === "driver" && <Driver trace={trace} connected={connected} />}
-      {view === "demo" && <Demo trace={trace} connected={connected} />}
       {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
       {view === "fleet" && <Fleet trace={trace} />}
       {view === "registry" && <Registry />}
@@ -174,7 +171,7 @@ export default function App() {
       </aside>
 
       {/* MAIN */}
-      <div className="flex h-dvh min-w-0 flex-col lg:h-auto lg:min-h-0">
+      <div className="relative flex h-dvh min-w-0 flex-col lg:h-auto lg:min-h-0">
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {body}
 
@@ -195,7 +192,7 @@ export default function App() {
             <Button
               size="tap"
               onClick={() => setChatOpen(true)}
-              className="absolute right-4 bottom-4 z-50 rounded-full shadow-xl lg:right-5 lg:bottom-5"
+              className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-50 rounded-full shadow-xl lg:right-5 lg:bottom-5"
             >
               <MessageSquare className="size-4" />
               Yard Boss
@@ -203,21 +200,40 @@ export default function App() {
           )}
         </div>
 
-        {/* BOTTOM NAV — phone only */}
-        <nav className="grid shrink-0 grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
-          {NAV.map(({ key, short, Icon }) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              className={cn(
-                "flex min-h-15 flex-col items-center justify-center gap-1 text-[10px] transition-colors",
-                view === key ? "font-semibold text-primary" : "text-muted-foreground",
-              )}
-            >
-              <Icon className="size-[19px]" />
-              {short}
-            </button>
-          ))}
+        {/* BOTTOM NAV — phone only. Apple-style glass: it floats over the
+            content rather than pushing it up, because the blur only reads as
+            glass when there is something moving underneath it. */}
+        <nav
+          className={cn(
+            "absolute inset-x-0 bottom-0 z-50 grid grid-cols-4 lg:hidden",
+            "pb-[env(safe-area-inset-bottom)]",
+            // hairline, not a border: 1px at 3x is a heavy line
+            "border-t border-white/[0.08]",
+            // opaque fallback first, translucent only where the blur exists
+            "bg-card",
+            "supports-[backdrop-filter]:bg-card/65 supports-[backdrop-filter]:backdrop-blur-2xl",
+            "supports-[backdrop-filter]:backdrop-saturate-[180%]",
+          )}
+        >
+          {NAV.map(({ key, short, Icon }) => {
+            const on = view === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "flex min-h-14 flex-col items-center justify-center gap-1 pt-1.5 pb-1",
+                  "text-[10px] tracking-[0.01em] transition-colors duration-150",
+                  "active:opacity-60",
+                  on ? "font-semibold text-primary" : "text-muted-foreground",
+                )}
+              >
+                <Icon className={cn("size-[22px] transition-transform", on && "scale-105")} strokeWidth={on ? 2.2 : 1.8} />
+                {short}
+              </button>
+            );
+          })}
         </nav>
       </div>
     </div>

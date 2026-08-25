@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Check, MapPin, X } from "lucide-react";
+import { AlertTriangle, Camera, Check, X } from "lucide-react";
 import { api, type DriverBoard, type DriverLoad, type TraceEvent } from "@/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -164,7 +164,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         {trace && trace.length > 0 && <TracePeek trace={trace} />}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-6 lg:order-1 lg:border-r lg:border-border lg:p-8">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:order-1 lg:border-r lg:border-border lg:p-8 lg:pb-8">
         {(screen === "home" || screen === "hunting") && (
           <div className="mb-5 hidden lg:block">
             <Place gps={!!gps} city={truck?.city} big />
@@ -338,7 +338,7 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
  *  the one lie this screen must not tell. */
 const VERDICT = {
   CLEAR: { label: "CHECKED · SAFE", cls: "text-ok bg-ok/15", Icon: Check },
-  REVIEW: { label: "CHECKED · ONE CATCH", cls: "text-warn bg-warn/15", Icon: MapPin },
+  REVIEW: { label: "CHECKED · ONE CATCH", cls: "text-warn bg-warn/15", Icon: AlertTriangle },
   BLOCKED: { label: "BLOCKED", cls: "text-bad bg-bad/15", Icon: X },
 } as const;
 

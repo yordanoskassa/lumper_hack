@@ -163,7 +163,7 @@ export function Desk({ trace, connected, deskFromStream }: {
   return (
     // Breakpoints do the responding, never a measured width: stacked cards is the
     // default and the six-column table is the lg-and-up upgrade.
-    <div className="h-full overflow-x-hidden overflow-y-auto px-4 pt-4 pb-24 sm:px-5 lg:px-6">
+    <div className="h-full overflow-x-hidden overflow-y-auto px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:px-5 lg:px-6 lg:pb-6">
       <div className="flex flex-col gap-3">
         {/* header */}
         <div className="flex flex-wrap items-end gap-3">

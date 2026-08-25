@@ -56,7 +56,7 @@ export function Registry() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 sm:p-5">
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:p-5 lg:pb-6">
         {/* Header */}
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
           <div className="min-w-0 flex-1">
