@@ -15,7 +15,7 @@ from fastapi import APIRouter, Body
 from fastapi.responses import StreamingResponse
 
 from .agents.verifier import _blacklist
-from .agents.yardboss import YardBoss, desk_snapshot
+from .agents.dispatch import Dispatch, desk_snapshot
 from .data import seed
 from .data.seed import coords_for_city
 from .platform.memory import bank
@@ -24,15 +24,15 @@ from .platform.registry import cards
 from .platform.runtime import runs
 
 router = APIRouter(prefix="/api")
-_boss: YardBoss | None = None
+_dispatch: Dispatch | None = None
 _chat_history: list[dict] = []
 
 
-def boss() -> YardBoss:
-    global _boss
-    if _boss is None:
-        _boss = YardBoss()
-    return _boss
+def dispatch() -> Dispatch:
+    global _dispatch
+    if _dispatch is None:
+        _dispatch = Dispatch()
+    return _dispatch
 
 
 @router.get("/health")
@@ -72,7 +72,7 @@ async def tenant():
 async def chat(body: dict = Body(...)):
     message = body.get("message", "")
     run_id = body.get("run_id") or runs.new_run_id()
-    result = await boss().chat(run_id, message, _chat_history[-8:])
+    result = await dispatch().chat(run_id, message, _chat_history[-8:])
     _chat_history.append({"role": "user", "text": message})
     _chat_history.append({"role": "model", "text": result["reply"]})
     return {"run_id": run_id, **result}
@@ -81,7 +81,7 @@ async def chat(body: dict = Body(...)):
 @router.post("/scan")
 async def scan():
     run_id = runs.new_run_id()
-    result = await boss().scan_board(run_id)
+    result = await dispatch().scan_board(run_id)
     return {"run_id": run_id, **result}
 
 
@@ -94,10 +94,10 @@ async def desk():
     from .tools.loadboards import adapter
     postings = await adapter().search(tenant_doc["truck"]["city"])
     postings = [p for p in postings if p["mc"] not in blacklist]
-    board = await boss().finder.evaluate_board(
+    board = await dispatch().finder.evaluate_board(
         run_id, postings, tenant_doc["truck"], tenant_doc["floor_rpm"], blacklist)
     for m in board["all_rows"]:
-        g = await boss().verifier.screen(run_id, m["mc"], posting=m["posting"], quiet=True)
+        g = await dispatch().verifier.screen(run_id, m["mc"], posting=m["posting"], quiet=True)
         m["ghost"] = {"verdict": g["verdict"], "score": g["score"], "failed": g["failed"],
                       "callback_mismatch": g["callback"].get("mismatch", False)}
     snap = await desk_snapshot(board, tenant_doc["truck"], tenant_doc, len(postings))
@@ -107,8 +107,8 @@ async def desk():
 @router.post("/screen")
 async def screen(body: dict = Body(...)):
     run_id = body.get("run_id") or runs.new_run_id()
-    mc, posting = await boss()._resolve_mc(body["mc"])
-    g = await boss().verifier.screen(run_id, mc, posting=posting)
+    mc, posting = await dispatch()._resolve_mc(body["mc"])
+    g = await dispatch().verifier.screen(run_id, mc, posting=posting)
     return {"run_id": run_id, "ghost": g, "verifier": g}
 
 
@@ -118,7 +118,7 @@ async def book(body: dict = Body(...)):
     rate = body.get("rate")
     run = await runs.create("book", {"posting_id": posting_id})
     run_id = run["run_id"]
-    runs.launch(run_id, boss().book_load(run_id, posting_id, rate))
+    runs.launch(run_id, dispatch().book_load(run_id, posting_id, rate))
     return {"run_id": run_id, "started": True}
 
 
@@ -126,7 +126,7 @@ async def book(body: dict = Body(...)):
 async def refuse(body: dict = Body(...)):
     run_id = body.get("run_id") or runs.new_run_id()
     mc = body["mc"]
-    bl = await boss()._refuse(run_id, mc)
+    bl = await dispatch()._refuse(run_id, mc)
     return {"run_id": run_id, "blacklist": bl}
 
 
@@ -135,7 +135,7 @@ async def scenario(body: dict = Body(...)):
     which = body.get("which", "clean")
     run = await runs.create("scenario", {"which": which})
     run_id = run["run_id"]
-    b = boss()
+    b = dispatch()
     coro = {"ghost": b.scenario_ghost, "injection": b.scenario_injection,
             "callback": b.scenario_callback,
             "detention": b.scenario_detention}.get(which, b.scenario_clean)(run_id)
@@ -155,7 +155,7 @@ async def loads():
     blacklist = await _blacklist()
     from .tools.loadboards import adapter
     postings = [p for p in await adapter().search(truck["city"]) if not p.get("filler")]
-    board = await boss().finder.evaluate_board(
+    board = await dispatch().finder.evaluate_board(
         "driver-app", postings, truck, tenant_doc["floor_rpm"], set(), verbose=False)
 
     claims = await bank.all("detention_claims")
@@ -166,7 +166,7 @@ async def loads():
         if p.get("dup_of") or not p.get("rate"):
             continue
         broker = await bank.get("brokers", p["mc"]) or {}
-        g = await boss().verifier.screen("driver-app", p["mc"], posting=p, silent=True)
+        g = await dispatch().verifier.screen("driver-app", p["mc"], posting=p, silent=True)
         verdict, risk = _driver_verdict(g, p["mc"] in blacklist)
         # a load that doesn't clear the floor is not a load; it only stays on
         # the phone if it is here to be shown getting stopped
@@ -202,7 +202,7 @@ async def arrive(body: dict = Body(...)):
     posting_id = body["posting_id"]
     run = await runs.create("detention", {"posting_id": posting_id})
     run_id = run["run_id"]
-    runs.launch(run_id, boss().payday.watch_detention(
+    runs.launch(run_id, dispatch().payday.watch_detention(
         run_id, posting_id, float(body["lat"]), float(body["lng"])))
     return {"run_id": run_id, "started": True}
 
@@ -212,7 +212,7 @@ async def depart(body: dict = Body(...)):
     """Driver rolled off the property. Close the clock, total it, file it."""
     posting_id = body["posting_id"]
     run_id = body.get("run_id") or runs.new_run_id()
-    out = await boss().payday.close_detention(
+    out = await dispatch().payday.close_detention(
         run_id, posting_id, float(body["lat"]), float(body["lng"]))
     if out.get("error"):
         return {"run_id": run_id, "minutes_on_site": 0, "billable_minutes": 0,
@@ -268,7 +268,7 @@ async def _pod_flow(run_id: str, posting_id: str, image_b64: str,
                  "detention_rate": det["rate_per_hour"], "free_hours": det["free_hours"],
                  "terms": "Net 30 / factoring OK"}
         await bank.put("locked_terms", posting_id, terms)
-    pd = boss().payday
+    pd = dispatch().payday
     await pd.capture_pod(run_id, terms, image_b64, lat, lng)
     broker = await bank.get("brokers", terms["mc"]) or {}
     return await pd.settle(run_id, terms, pay_days=broker.get("avg_pay_days") or 19,
@@ -392,7 +392,7 @@ async def reset():
     await bank.clear("quarantine")
     await bank.clear("detention")
     _chat_history.clear()
-    hub.emit(TraceEvent(run_id="system", agent="YARD BOSS", agent_name="Yard Boss",
+    hub.emit(TraceEvent(run_id="system", agent="DISPATCH", agent_name="Dispatch",
                         msg="desk reset · sandbox reseeded · graph restored"))
     return {"ok": True}
 

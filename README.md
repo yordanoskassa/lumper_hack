@@ -29,7 +29,7 @@ what a good dispatcher would do — only faster, and out loud:
 5. The good load gets booked, hauled, invoiced, factored, and paid — and the
    payment behavior is written back so the fleet is smarter on the next load.
 
-You talk to it in plain English through **Yard Boss**, the orchestrator chatbot:
+You talk to it in plain English through **Dispatch**, the orchestrator chatbot:
 *"scan the board," "screen MC-1680087," "book P-90412," "run the injection scenario."*
 
 ---
@@ -38,7 +38,7 @@ You talk to it in plain English through **Yard Boss**, the orchestrator chatbot:
 
 | Agent | Job | Tools it actually calls |
 |---|---|---|
-| **Yard Boss** | Orchestrator + chat | Gemini function-calling router, run state, task scheduling |
+| **Dispatch** | Orchestrator + chat | Gemini function-calling router, run state, task scheduling |
 | **Scout** | Hunts loads | Load-board adapters, ELD position + HOS read, candidate store |
 | **Margin** | Does the money math | Maps Routes, Maps Geocoding, EIA diesel by PADD, lane history, HOS check |
 | **Ghost** | Kills ghost brokers | FMCSA QCMobile, RDAP domain age, memory-graph collisions, Gemini verdict |

@@ -22,7 +22,7 @@ const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
   { key: "registry", label: "Registry", short: "Agents", Icon: FileText },
 ];
 
-const ROSTER = ["Yard Boss", "Finder", "Verifier", "Closer", "Payday"];
+const ROSTER = ["Dispatch", "Finder", "Verifier", "Closer", "Payday"];
 
 /** Installed to a home screen, or opened at /?driver=1, the app IS the driver
  *  app — no console chrome at all. */
@@ -175,7 +175,7 @@ export default function App() {
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {body}
 
-          {/* Yard Boss: a docked panel on desktop, a full sheet on a phone. */}
+          {/* Dispatch: a docked panel on desktop, a full sheet on a phone. */}
           {chatOpen ? (
             <div className="absolute inset-0 z-60 flex flex-col bg-background p-3 lg:inset-auto lg:right-5 lg:bottom-5 lg:h-[70vh] lg:w-[380px] lg:rounded-xl lg:p-0 lg:shadow-2xl">
               <Button
@@ -195,7 +195,7 @@ export default function App() {
               className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-50 rounded-full shadow-xl lg:right-5 lg:bottom-5"
             >
               <MessageSquare className="size-4" />
-              Yard Boss
+              Dispatch
             </Button>
           )}
         </div>

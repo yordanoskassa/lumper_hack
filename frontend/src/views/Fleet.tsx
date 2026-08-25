@@ -63,7 +63,7 @@ export function Fleet({ trace }: { trace: TraceEvent[] }) {
         <div>
           <h1 className="text-2xl font-semibold tracking-[-0.025em] sm:text-[26px]">The fleet</h1>
           <p className="mt-1 text-[13px] text-pretty text-muted-foreground">
-            Four agents do the work and Yard Boss routes between them. Each one hands to the
+            Four agents do the work and Dispatch routes between them. Each one hands to the
             next, and every tool call goes through the Gateway.
           </p>
         </div>

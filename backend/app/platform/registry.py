@@ -47,7 +47,7 @@ def bootstrap() -> None:
     money-math scopes, only Closer can send an offer, only Payday can bill."""
     fleet = [
         AgentCard(
-            key="YARD BOSS", name="Yard Boss", version="3.0.0", badge="Orchestrator",
+            key="DISPATCH", name="Dispatch", version="3.0.0", badge="Orchestrator",
             role="Routes every event and every sentence you type. Holds run state, decides who runs next.",
             handoff="Finder, Verifier, Closer or Payday",
             scopes=["events.route", "state.write", "tasks.schedule", "llm.route"],

@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     live = [n for n, on in (("Gemini", s.has_gemini), ("Maps", s.has_maps),
                             ("EIA", s.has_eia), ("FMCSA", s.has_fmcsa)) if on]
     hub.emit(TraceEvent(
-        run_id="system", agent="YARD BOSS", agent_name="Yard Boss",
+        run_id="system", agent="DISPATCH", agent_name="Dispatch",
         msg=(f"fleet online · {len(registry.REGISTRY) - 1} specialists + orchestrator · "
              f"Memory Bank: {driver} · live integrations: {', '.join(live) or 'none (labeled fallbacks)'}"
              + (" · sandbox seeded" if seeded else "")),

@@ -342,7 +342,7 @@ export function Desk({ trace, connected, deskFromStream }: {
               </CardHeader>
               {runs.length === 0 ? (
                 <CardContent className="py-3.5 text-xs leading-relaxed text-muted-foreground">
-                  No active runs. Book a load or ask Yard Boss to run a scenario — Closer and Payday
+                  No active runs. Book a load or ask Dispatch to run a scenario — Closer and Payday
                   advance it over simulated days in the trace.
                 </CardContent>
               ) : (

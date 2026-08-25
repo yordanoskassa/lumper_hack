@@ -3,7 +3,7 @@ tools its registry card declares, and every tool call it makes goes through
 the Gateway (which re-checks that scope). Agents never touch tools directly.
 
 Trace events carry the agent ID (FINDER / VERIFIER / CLOSER / PAYDAY /
-YARD BOSS) plus its display name, so the UI can colour by identity and the
+DISPATCH) plus its display name, so the UI can colour by identity and the
 audit log stays stable even if a display name changes."""
 from __future__ import annotations
 

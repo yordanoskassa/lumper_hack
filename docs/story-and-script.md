@@ -83,8 +83,8 @@ That is **double brokering**. Victor was never in contract with anyone who exist
 No bond claim, no lien, nobody to sue. **$4,000 gone** — that load and the one
 before it from the same ring, which he'd taken *because the first one went fine.*
 
-**The tell was on the screen the whole time.** The MC was real. The *phone number*
-on the posting belonged to a stranger — not the registered contact for that MC.
+**The mismatch was on the screen.** The MC was real, but the phone number on the
+posting did not match the registered contact for that MC.
 One cross-check catches it. A dispatcher does that cross-check. Victor cancelled
 the dispatcher in month nine, and at 11:47 PM he did not.
 
@@ -141,32 +141,37 @@ bank account.
 
 ## 3. Video treatment — 1:50 · speechless
 
-Built in Remotion using the app's exact identity: the production `icon.svg`, Inter,
-Geist Mono, paper `#FAFAFA`, ink `#0A0A0A`, orange `#EA580C`, and cab-dark
+Built in Remotion using the app's exact identity: the production `icon.svg`, Inter
+Regular (400) throughout, Geist Mono Regular (400) only for numbers and system data,
+paper `#FAFAFA`, ink `#0A0A0A`, orange `#EA580C`, and cab-dark
 `#1E1E1E`. There is no narration and no subtitle track. Emotion comes from the
 numbers, visual restraint, and the user-supplied melancholic cinematic score.
 The edit uses a 1:50 passage from the longer track with a clean opening and closing fade.
 
 | # | Time | Scene | On screen |
 |---|---|---|---|
-| 1 | 0:00–0:08 | **Human opening** | Begin on completely blank white. Victor is drawn line by line, labeled in regular-weight Inter, then **"His driving shift ended. The business did not."** resolves word by word in the center. |
-| 2 | 0:08–0:20 | **Meet Victor** | **"One truck. One new home. No room for a bad month."** Ledger resolves to **$6,520 fixed**. |
-| 3 | 0:20–0:32 | **The back office** | Dispatcher, factoring, compliance → **$2,840/mo** → **MONTH 9 · CANCELLED**. **"The work did not disappear. It moved into the cab."** |
-| 4 | 0:32–0:52 | **Double brokered** | Toledo → Charlotte. Real MC. Day 60 unpaid. Disconnected number. **−$4,000**. Then the tell: `MC ✓ real` / `PHONE ✗ stranger`. |
+| 1 | 0:00–0:08 | **Human opening** | Begin on completely blank white. Victor is drawn line by line and labeled. **"Victor drives the truck. He also runs the business."** |
+| 2 | 0:08–0:20 | **Monthly bills** | **"He owes $6,520 every month. Before diesel."** The ledger shows mortgage, truck, insurance, and home costs. |
+| 3 | 0:20–0:32 | **The back office** | **"His back office cost $2,840 a month."** Show the three services. Then **MONTH 9 · CANCELLED** and **"He did the work himself."** |
+| 4 | 0:32–0:52 | **Double brokered** | The broker's MC number was real. Victor hauled two loads. Day 60: unpaid. The posted phone number did not match the broker. **−$4,000**. |
 | 5 | 0:52–1:04 | **Detention** | `06:40 → 13:15` · **$292 owed** → **DENIED · NO PROOF OF ARRIVAL**. |
-| 6 | 1:04–1:12 | **Impact** | **−$4,292** beside the unchanged mortgage. **"The loss moved. The mortgage did not."** |
-| 7 | 1:12–1:22 | **Four agents** | **FINDER · VERIFIER · CLOSER · PAYDAY**. Four specific fights, not eight generic assistants. |
-| 8 | 1:22–1:42 | **The product** | Finder proves margin. Verifier catches the callback mismatch. Closer follows up. Payday files GPS-backed detention. |
-| 9 | 1:42–1:50 | **Close** | Production logo. **Sentinel. The back office a one-truck carrier could never afford.** |
+| 6 | 1:04–1:12 | **Impact** | **−$4,292** total from double brokering and unpaid detention. **"His mortgage was still due."** |
+| 7 | 1:12–1:22 | **Four agents** | **"Four agents now handle Victor's back office."** Finder finds profitable loads. Verifier checks identity. Closer negotiates and follows up. Payday documents detention and payment. |
+| 8 | 1:22–1:42 | **The product** | Finder checks profit. Verifier checks identity and refuses the mismatched broker. Closer negotiates. Payday records detention and attaches GPS proof. |
+| 9 | 1:42–1:50 | **Close** | Production logo. **"Four agents run the back office for one-truck carriers."** |
 
 ---
 
 ## 4. Direction notes
 
 - **No voice-over. No narration captions.** The few words on screen are part of the composition.
-- The opening starts empty and uses no bold type. Let the thin human drawing establish Victor first.
+- The opening starts empty, and the full film uses no bold type. Let the thin human drawing establish Victor first, then keep that same light Inter Regular voice in every scene.
 - Reveal language one word at a time. Alternate soft-focus, upward drift, and lateral movement.
+- Keep each complete sentence one color. Do not scatter colored emphasis across words; reserve color for standalone numbers, statuses, and evidence.
+- Use direct cause-and-effect language. Avoid metaphors that require interpretation.
 - Animate the evidence too: totals count, clocks advance, cards enter, status trails resolve, and refusal states pulse.
+- Keep the production logo for the final reveal only. Narrative scenes should flow like a film, without a repeated website-style header.
+- Give every agent its own visual grammar: Finder draws a route, Verifier splits and compares identity, Closer climbs a rate ladder, and Payday builds a proof timeline.
 - Let empty space and long holds carry the emotion. The numbers do the acting.
 - **Show the refusal.** Everyone demos the happy path. Refusing a load is the money shot.
 - Cab-dark `#1E1E1E` is *always* Victor's side. Paper `#FAFAFA` is *always* the system's.

@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 // Keyed on the agent id the backend sends (uppercase), not the display name —
 // the fleet is these five. Every value clears 4.5:1 on the card.
 const AGENT_FG: Record<string, string> = {
-  "YARD BOSS": "text-[#fdba74]",
+  "DISPATCH": "text-[#fdba74]",
   FINDER: "text-[#60a5fa]",
   VERIFIER: "text-ok",
   CLOSER: "text-[#c084fc]",

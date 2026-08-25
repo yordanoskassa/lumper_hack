@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 
 interface Msg { role: string; text: string }
 
-// Phrases the Yard Boss router resolves even when Gemini is offline and the
+// Phrases the Dispatch router resolves even when Gemini is offline and the
 // keyword fallback is doing the routing.
 const SUGGESTIONS = [
   "Scan the board",
@@ -24,7 +24,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [local, setLocal] = useState<Msg[]>([
-    { role: "assistant", text: "Yard Boss here. I route the fleet — Finder, Verifier, Closer and Payday. Tell me what to run, or tap a suggestion below." },
+    { role: "assistant", text: "Dispatch here. I route the fleet — Finder, Verifier, Closer and Payday. Tell me what to run, or tap a suggestion below." },
   ]);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -56,10 +56,10 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
     <Card className="flex min-h-0 flex-1 flex-col gap-0 py-0">
       <div className="flex shrink-0 items-center gap-2.5 px-4 py-3">
         <Avatar size="sm">
-          <AvatarFallback className="text-[10px] font-semibold">YB</AvatarFallback>
+          <AvatarFallback className="text-[10px] font-semibold">DX</AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold">Yard Boss</div>
+          <div className="text-[13px] font-semibold">Dispatch</div>
           <div className="truncate text-[10.5px] text-muted-foreground">
             Orchestrator · routes the four agents
           </div>
@@ -114,7 +114,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send(input)}
           placeholder="Tell the fleet what to do…"
-          aria-label="Message Yard Boss"
+          aria-label="Message Dispatch"
           className="h-11 text-[13px]"
         />
         <Button size="tap" disabled={busy} onClick={() => send(input)} className="shrink-0">

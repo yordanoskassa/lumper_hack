@@ -1,4 +1,4 @@
-"""Yard Boss — the orchestrator and the chat you talk to. It routes events and
+"""Dispatch — the orchestrator and the chat you talk to. It routes events and
 natural-language commands (Gemini function calling, keyword fallback with no
 key) to one of four specialists, holds run state, and narrates the handoff
 chain. It is the one agent a human addresses directly; the rest it dispatches.
@@ -43,15 +43,15 @@ ROUTES = [
      "parameters": {"type": "object", "properties": {"which": {"type": "string", "enum": ["clean", "ghost", "callback", "detention", "injection"]}}, "required": ["which"]}},
 ]
 
-SYSTEM = ("You are Yard Boss, the orchestrator of an autonomous freight desk with four "
+SYSTEM = ("You are Dispatch, the orchestrator of an autonomous freight desk with four "
           "specialist agents: Finder (finds loads and proves they clear a profit), "
           "Verifier (proves the broker is real and audits the paper), Closer (negotiates, "
           "books and runs the trip), Payday (detention clock, invoice, collections). "
           "Route the operator's request to exactly one tool. Be terse.")
 
 
-class YardBoss(Agent):
-    key = "YARD BOSS"
+class Dispatch(Agent):
+    key = "DISPATCH"
 
     def __init__(self) -> None:
         super().__init__()

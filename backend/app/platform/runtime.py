@@ -52,10 +52,10 @@ class RunManager:
         try:
             await coro
         except asyncio.CancelledError:
-            hub.emit(TraceEvent(run_id=run_id, agent="YARD BOSS", agent_name="Yard Boss",
+            hub.emit(TraceEvent(run_id=run_id, agent="DISPATCH", agent_name="Dispatch",
                                 tone="warn", msg="run cancelled by operator"))
         except Exception as e:  # surface crashes into the trace, never die silent
-            hub.emit(TraceEvent(run_id=run_id, agent="YARD BOSS", agent_name="Yard Boss",
+            hub.emit(TraceEvent(run_id=run_id, agent="DISPATCH", agent_name="Dispatch",
                                 tone="fail", msg=f"run crashed: {type(e).__name__}: {e}"))
             await bank.patch("runs", run_id, {"stage": "crashed"})
 
