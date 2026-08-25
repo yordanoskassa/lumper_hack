@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CITY_COORDS, haversineMi } from "./geo";
 import { MapCanvas, type MapPin as Pin, type MapRoute } from "./MapCanvas";
+import { GoogleMapCanvas, hasMapsKey } from "./GoogleMap";
 import { DetentionCard, type DetentionState } from "./DetentionCard";
 import { VerifyScan, type Check as ScanCheck } from "./VerifyScan";
 
@@ -26,6 +27,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
   const [det, setDet] = useState<DetentionState>({ active: false });
   const [podImg, setPodImg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [mapFailed, setMapFailed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // real device location when the browser grants it; the truck's yard otherwise
@@ -139,9 +141,20 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
     // map becomes the full-height canvas. Pure breakpoints — no measuring.
     <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
       <div className="relative h-[38vh] max-h-95 min-h-60 shrink-0 lg:order-2 lg:h-full lg:max-h-none">
-        <MapCanvas pins={pins} routes={routes} focus={focus}
-          scanning={screen === "hunting"}
-          geofenceMi={screen === "dock" ? 40 : undefined} />
+        {/* Real tiles when a key is present. The keyless map stays as the
+            fallback so a dead network on stage degrades instead of failing. */}
+        {hasMapsKey && !mapFailed ? (
+          <>
+            <GoogleMapCanvas pins={pins} routes={routes} focus={focus}
+              geofenceMi={screen === "dock" ? 40 : undefined}
+              onFail={() => setMapFailed(true)} />
+            {screen === "hunting" && <ScanOverlay />}
+          </>
+        ) : (
+          <MapCanvas pins={pins} routes={routes} focus={focus}
+            scanning={screen === "hunting"}
+            geofenceMi={screen === "dock" ? 40 : undefined} />
+        )}
 
         {(screen === "home" || screen === "hunting") && (
           <div className="absolute inset-x-4 bottom-4 lg:hidden">
@@ -214,6 +227,18 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** The security sweep, lifted out so it can sit over real tiles too. */
+function ScanOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0"
+        style={{ background: "repeating-linear-gradient(0deg, rgba(52,211,153,.05) 0 1px, transparent 1px 3px)" }} />
+      <div className="scan-bar absolute inset-x-0 h-30"
+        style={{ background: "linear-gradient(180deg, transparent, rgba(52,211,153,.18) 60%, rgba(52,211,153,.55) 96%, transparent)" }} />
     </div>
   );
 }

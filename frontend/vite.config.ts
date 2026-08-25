@@ -5,6 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // One .env at the repo root feeds both halves; only VITE_-prefixed vars
+  // reach the browser, so backend keys stay server-side by construction.
+  envDir: path.resolve(__dirname, ".."),
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
