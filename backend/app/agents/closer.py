@@ -46,7 +46,7 @@ class Closer(Agent):
         await self.call(run_id, "mail.send", to=load.get("broker_email", "dispatch@broker.example"),
                         subject=f"Offer — {load['load_id']} {load['origin']}→{load['dest']}",
                         body=f"We can cover this at ${agreed_rate:,} all-in. {stance}",
-                        kind="offer", trace="Gmail — {detail}")
+                        kind="offer", trace="Mail — {detail}")
 
         reply = await self._await_broker_reply(run_id, load, broker, agreed_rate)
         if not reply["accepted"]:
@@ -69,7 +69,7 @@ class Closer(Agent):
                         subject=f"Rate confirmation — {load['load_id']} {load['origin']}→{load['dest']}",
                         body=f"Confirming ${agreed_rate:,} all-in. Terms attached.",
                         attachment=f"rate_con_{load['load_id']}.pdf",
-                        trace="Gmail — {detail}")
+                        trace="Mail — {detail}")
 
         # assign the run and tell the driver, with the detention rule spelled out
         truck = (await bank.get("settings", "tenant"))["truck"]

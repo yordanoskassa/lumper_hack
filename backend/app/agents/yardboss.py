@@ -27,8 +27,8 @@ ROUTES = [
      "description": "Scan the load board for the truck: Finder pulls postings and does the money math, Verifier screens the survivors. Use for 'find loads', 'scan the board', 'what's available'.",
      "parameters": {"type": "object", "properties": {}}},
     {"name": "screen_broker",
-     "description": "Run Verifier fraud screening on one broker MC number or one posting id. Use for 'screen MC-1687203', 'is this broker legit', 'check P-90431'.",
-     "parameters": {"type": "object", "properties": {"mc": {"type": "string", "description": "the MC number, e.g. MC-1687203, or a posting id"}}, "required": ["mc"]}},
+     "description": "Run Verifier fraud screening on one broker MC number or one posting id. Use for 'screen MC-1680087', 'is this broker legit', 'check P-90431'.",
+     "parameters": {"type": "object", "properties": {"mc": {"type": "string", "description": "the MC number, e.g. MC-1680087, or a posting id"}}, "required": ["mc"]}},
     {"name": "book_load",
      "description": "Book a specific posting end to end: verify, negotiate, audit the rate con, run the trip, get paid. Use for 'book P-90412', 'take the Columbus load'.",
      "parameters": {"type": "object", "properties": {"posting_id": {"type": "string"}, "rate": {"type": "integer", "description": "agreed rate if the human named one"}}, "required": ["posting_id"]}},
@@ -72,7 +72,7 @@ class YardBoss(Agent):
         else:
             backend = "live"
         if route is None:
-            reply = ("I route freight ops. Try: “scan the board”, “screen MC-1687203”, "
+            reply = ("I route freight ops. Try: “scan the board”, “screen MC-1680087”, "
                      "“book P-90412”, “what's my detention”, or “run the callback scenario”.")
             self.say(run_id, "no matching route · asked operator to rephrase", "warn")
             hub.emit_misc("chat", {"run_id": run_id, "role": "assistant", "text": reply})
@@ -298,7 +298,7 @@ class YardBoss(Agent):
     async def scenario_injection(self, run_id: str) -> dict:
         self.say(run_id, "scenario: prompt injection · Gmail attachment routed to Verifier")
         terms = {"load_id": "P-90311", "broker": "Bluegrass Carriers LLC",
-                 "mc": "MC-990100", "origin": "Louisville KY", "dest": "Nashville TN",
+                 "mc": "MC-990008", "origin": "Louisville KY", "dest": "Nashville TN",
                  "miles": 175, "rate": 950, "detention_rate": 75, "free_hours": 2,
                  "broker_email": "billing@bluegrass-carriers.example.co"}
         await bank.put("locked_terms", terms["load_id"], terms)

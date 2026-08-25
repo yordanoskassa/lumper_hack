@@ -69,13 +69,19 @@ def bootstrap() -> None:
         ),
         AgentCard(
             key="VERIFIER", name="Verifier", version="3.0.0", badge="Villain-killer",
-            role="Proves the broker is who the posting says it is, then audits the paper "
+            role="Pulls the federal SAFER record for the MC on the posting and diffs it "
+                 "field by field against what the posting claims, then audits the paper "
                  "they send back. Runs before anyone picks up the phone.",
             handoff="Closer, or refuses the run",
+            # `safer.lookup` and `safer.crosscheck` are registered under
+            # fmcsa.read, so the scope below already authorises them — no extra
+            # grant, which is the point of scoping by data source not by tool.
             scopes=["fmcsa.read", "rdap.read", "graph.read", "graph.write", "memory.read",
                     "memory.write", "llm.explain", "mail.read", "mail.send", "doc.extract",
                     "armor.screen", "state.write"],
-            tools=["FMCSA QCMobile authority/insurance/OOS", "Callback-contact cross-check",
+            tools=["SAFER federal record retrieval (L&I + Motor Carrier Census, keyless)",
+                   "SAFER posting-vs-registry cross-check",
+                   "FMCSA QCMobile authority/insurance/OOS", "Callback-contact cross-check",
                    "RDAP / WHOIS domain age", "Memory Bank recall (unpaid, ACH, blacklist)",
                    "Model Armor pre-screen", "Document AI extraction + diff",
                    "Gemini plain-English verdict"],
@@ -92,7 +98,8 @@ def bootstrap() -> None:
                     "state.write", "llm.explain"],
             tools=["Lane comps anchor", "Gemini counter-offer reasoning",
                    "Bounded retry + backoff on broker silence", "Voice approve (STT/TTS)",
-                   "Gmail send + watch", "Locked-terms write", "Routes API + NWS reroute"],
+                   "Resend send (allowlisted) / Outbox + watch", "Locked-terms write",
+                   "Routes API + NWS reroute"],
             loop="The terms it locks are the reference Verifier audits the paper against.",
         ),
         AgentCard(

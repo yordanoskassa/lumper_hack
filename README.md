@@ -30,7 +30,7 @@ what a good dispatcher would do — only faster, and out loud:
    payment behavior is written back so the fleet is smarter on the next load.
 
 You talk to it in plain English through **Yard Boss**, the orchestrator chatbot:
-*"scan the board," "screen MC-1687203," "book P-90412," "run the injection scenario."*
+*"scan the board," "screen MC-1680087," "book P-90412," "run the injection scenario."*
 
 ---
 

@@ -34,8 +34,21 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db: str = "sentinel"
 
-    # --- Gmail (optional OAuth token file); otherwise Outbox simulator ---
+    # --- Gmail OAuth token file. Reserved for a future Gmail sender; nothing
+    #     reads it today, and it deliberately does NOT unlock a live send —
+    #     outbound mail goes through Resend under the three locks below. ---
     gmail_token_file: str = ""
+
+    # --- Resend (transactional email) ---
+    # Having a key is NOT permission to send. A real delivery needs all three:
+    # a key, MAIL_LIVE=true, and the recipient's domain on MAIL_LIVE_ALLOWLIST.
+    # Anything else goes to the Outbox simulator and says so in the trace. The
+    # sandbox brokers are *.example.com and are refused outright (tools/mail.py).
+    resend_api_key: str = ""
+    resend_from: str = ""
+    resend_reply_to: str = ""
+    mail_live: bool = False
+    mail_live_allowlist: str = ""
 
     # --- Load board adapter: sandbox | dat | truckstop ---
     loadboard_adapter: str = "sandbox"
@@ -66,6 +79,16 @@ class Settings(BaseSettings):
     @property
     def has_fmcsa(self) -> bool:
         return bool(self.fmcsa_webkey)
+
+    @property
+    def has_resend(self) -> bool:
+        return bool(self.resend_api_key and self.resend_from)
+
+    @property
+    def mail_allowlist(self) -> set[str]:
+        """Recipient domains cleared for a real send. Empty = nobody."""
+        return {d.strip().lower().lstrip("@")
+                for d in self.mail_live_allowlist.split(",") if d.strip()}
 
 
 @lru_cache

@@ -15,7 +15,7 @@ interface Msg { role: string; text: string }
 // keyword fallback is doing the routing.
 const SUGGESTIONS = [
   "Scan the board",
-  "Check broker MC-1687203",
+  "Check broker MC-1680087",
   "Run the callback scenario",
   "Run the detention scenario",
 ];
