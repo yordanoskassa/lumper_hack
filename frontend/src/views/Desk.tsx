@@ -73,6 +73,9 @@ export function Desk({ trace, connected, deskFromStream }: {
   // editable deal-desk overrides
   const [edit, setEdit] = useState<{ rate: number; dh: number; mi: number; diesel: number; mpg: number; floor: number } | null>(null);
   const [runs, setRuns] = useState<RunRow[]>([]);
+  // The board filters blacklisted brokers out upstream, so counting them in the
+  // rows can only ever return zero. The real tally lives in the memory graph.
+  const [graph, setGraph] = useState<{ flagged?: number; unpaid?: number } | null>(null);
 
   useEffect(() => { load(); }, []);
   useEffect(() => { if (deskFromStream) setDesk(deskFromStream); }, [deskFromStream]);
@@ -82,6 +85,7 @@ export function Desk({ trace, connected, deskFromStream }: {
     try {
       const d = await api.desk();
       setDesk(d);
+      api.tenant().then((t) => setGraph(t?.graph ?? null)).catch(() => {});
       if (!sel && d.rows.length) selectRow(d.rows.find((r) => !r.kill) ?? d.rows[0], d);
     } finally { setBusy(false); }
   }
@@ -158,7 +162,7 @@ export function Desk({ trace, connected, deskFromStream }: {
     );
   }
 
-  const flagged = desk.rows.filter((r) => r.blacklisted).length;
+  const flagged = graph?.flagged ?? desk.rows.filter((r) => r.blacklisted).length;
 
   return (
     // Breakpoints do the responding, never a measured width: stacked cards is the
@@ -198,7 +202,7 @@ export function Desk({ trace, connected, deskFromStream }: {
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           <Tile k="Killed on cost" v={String(desk.kills)} sub={`of ${desk.pulled} pulled`} />
           <Tile k="Best RPM after cost" v={`$${desk.best_rpm.toFixed(2)}`} sub={`floor $${desk.floor_rpm.toFixed(2)}`} />
-          <Tile k="Brokers flagged" v={String(flagged)} sub={flagged ? "filtered next scan" : "none this session"} accent={flagged > 0} />
+          <Tile k="Brokers flagged" v={String(flagged)} sub={flagged ? "kept off this board" : "none on record"} accent={flagged > 0} />
           <Tile k="Detention rate" v={`$${desk.detention.rate_per_hour}/hr`} sub={`after ${desk.detention.free_hours}h free`} accent />
         </div>
 
