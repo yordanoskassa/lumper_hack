@@ -13,6 +13,10 @@ export interface DetentionState {
   owed?: number;
   notice_sent?: boolean;
   status?: "WAITING" | "FREE_WINDOW" | "METER_RUNNING" | "NOTICE_SENT" | "CLAIM_FILED" | "PAID";
+  /** True only when the phone is timing this itself because the desk is
+   *  unreachable. Shown to the driver — an estimate must never be mistaken
+   *  for the timestamped record that actually wins a claim. */
+  estimated?: boolean;
   timeline?: { ts: number; label: string; kind?: string }[];
 }
 
@@ -51,13 +55,27 @@ export function DetentionCard({ d }: { d: DetentionState }) {
   // stay into free vs. billable so the orange share grows as the money does.
   const freePct = pastFree ? (free / onSite) * 100 : (onSite / free) * 100;
 
+  // Payday emits a running "Nh on site — $X owed" line every half hour. They are
+  // one fact, not twelve: keep the milestones and only the most recent total.
+  const raw = d.timeline ?? [];
+  const isTicker = (l: string) => /on site\s+—\s+\$/.test(l);
+  const lastTicker = raw.map((t) => t.label).filter(isTicker).at(-1);
+  const events = raw.filter((t) => !isTicker(t.label) || t.label === lastTicker);
+
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
       <div className="mb-3.5 flex items-center gap-2">
         <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] uppercase", s.cls)}>
           {s.line}
         </span>
-        {d.status === "METER_RUNNING" && <span className="pulse-dot size-[7px] rounded-full bg-primary" />}
+        {d.status === "METER_RUNNING" && !d.estimated && (
+          <span className="pulse-dot size-[7px] rounded-full bg-primary" />
+        )}
+        {d.estimated && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+            Estimate
+          </span>
+        )}
       </div>
 
       <div className="text-[13px] text-muted-foreground">Sitting at {d.stop ?? "the dock"}</div>
@@ -85,18 +103,20 @@ export function DetentionCard({ d }: { d: DetentionState }) {
         </div>
       )}
 
-      {!!d.timeline?.length && (
+      {!!events.length && (
         <div className="mt-5">
           <div className="mb-2.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
             What your agent did
           </div>
           <div className="flex flex-col">
-            {d.timeline.map((t, i) => (
+            {events.map((t, i) => (
               <div key={i} className="flex items-stretch gap-3">
                 <div className="flex flex-col items-center">
                   <span className={cn("mt-1.5 size-2 shrink-0 rounded-full",
-                    t.kind === "money" ? "bg-primary" : t.kind === "ok" ? "bg-ok" : "bg-muted-foreground/60")} />
-                  {i < d.timeline!.length - 1 && <span className="min-h-4 w-px flex-1 bg-border" />}
+                    t.kind === "money" || t.kind === "warn" ? "bg-primary"
+                      : t.kind === "ok" || t.kind === "good" ? "bg-ok"
+                      : "bg-muted-foreground/60")} />
+                  {i < events.length - 1 && <span className="min-h-4 w-px flex-1 bg-border" />}
                 </div>
                 <div className="min-w-0 pb-3 text-[13.5px] leading-snug">{t.label}</div>
               </div>

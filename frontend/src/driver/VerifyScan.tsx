@@ -20,27 +20,36 @@ const TONE = {
 export function VerifyScan({
   broker,
   checks,
+  verdict,
+  loading,
   onDone,
-  stepMs = 620,
+  stepMs = 340,
 }: {
   broker: string;
   checks: Check[];
+  /** The Verifier's own call — REFUSE / REVIEW / CLEAR. A REVIEW has warnings
+   *  but no hard failure, so it cannot be inferred from the rows alone. */
+  verdict?: string;
+  loading?: boolean;
   onDone?: (blocked: boolean) => void;
   stepMs?: number;
 }) {
   const [shown, setShown] = useState(0);
 
+  // Nothing reveals until the real result is back — no pre-rolled theatre.
   useEffect(() => {
+    if (loading) { setShown(0); return; }
     if (shown >= checks.length) {
-      const t = setTimeout(() => onDone?.(checks.some((c) => c.verdict === "fail")), 1100);
+      const t = setTimeout(() => onDone?.(verdict === "REFUSE" || verdict === "BLACKLISTED"), 1300);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setShown((n) => n + 1), stepMs);
     return () => clearTimeout(t);
-  }, [shown, checks.length, stepMs]);
+  }, [shown, checks.length, stepMs, loading, verdict]);
 
-  const done = shown >= checks.length;
-  const blocked = done && checks.some((c) => c.verdict === "fail");
+  const done = !loading && shown >= checks.length;
+  const blocked = verdict === "REFUSE" || verdict === "BLACKLISTED";
+  const review = verdict === "REVIEW";
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col overflow-y-auto bg-[#0B0B0E] px-5 py-6 sm:px-8 lg:px-10">
@@ -55,6 +64,12 @@ export function VerifyScan({
         <div className="mt-1.5 text-xl leading-tight font-semibold tracking-[-0.03em] sm:text-2xl">
           {broker}
         </div>
+
+        {loading && (
+          <div className="mono mt-6 flex items-center gap-2 text-[12px] text-ok">
+            retrieving the federal record<span className="blink">_</span>
+          </div>
+        )}
 
         <div className="mt-6 flex flex-col">
           {checks.map((c, i) => {
@@ -86,14 +101,16 @@ export function VerifyScan({
 
         {done && (
           <div className={cn("scan-row mt-4 rounded-2xl border px-4 py-4",
-            blocked ? "border-bad/40 bg-bad/12" : "border-ok/40 bg-ok/12")}>
+            blocked ? "border-bad/40 bg-bad/12"
+              : review ? "border-warn/40 bg-warn/12" : "border-ok/40 bg-ok/12")}>
             <div className={cn("text-2xl leading-tight font-semibold tracking-[-0.035em]",
-              blocked ? "text-bad" : "text-ok")}>
-              {blocked ? "We blocked this load" : "This one is safe"}
+              blocked ? "text-bad" : review ? "text-warn" : "text-ok")}>
+              {blocked ? "We blocked this load"
+                : review ? "Take it, but watch them" : "This one is safe"}
             </div>
             <div className="mt-1.5 text-sm leading-snug text-muted-foreground">
-              {blocked
-                ? "You would have hauled it and never been paid."
+              {blocked ? "You would have hauled it and never been paid."
+                : review ? "They check out, but their record has a catch worth knowing."
                 : "Real company. They pay. Go get it."}
             </div>
           </div>

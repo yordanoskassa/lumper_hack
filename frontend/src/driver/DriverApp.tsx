@@ -23,11 +23,16 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
   const [board, setBoard] = useState<DriverBoard | null>(null);
   const [picked, setPicked] = useState<DriverLoad | null>(null);
   const [verifying, setVerifying] = useState<DriverLoad | null>(null);
+  const [scan, setScan] = useState<{ checks: ScanCheck[]; verdict: string } | null>(null);
   const [gps, setGps] = useState<[number, number] | null>(null);
   const [det, setDet] = useState<DetentionState>({ active: false });
   const [podImg, setPodImg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  // Where the phone reports it is once the driver says they have arrived. The
+  // truck does not physically move during a demo, so continuing to send the
+  // origin makes Payday's geofence reject the delivery photo as fraudulent.
+  const [dockPos, setDockPos] = useState<[number, number] | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // real device location when the browser grants it; the truck's yard otherwise
@@ -41,7 +46,8 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
   }, []);
 
   const truck = board?.truck;
-  const here: [number, number] = gps ?? (truck ? [truck.lat, truck.lng] : [41.525, -88.0834]);
+  const here: [number, number] =
+    dockPos ?? gps ?? (truck ? [truck.lat, truck.lng] : [41.525, -88.0834]);
 
   async function hunt() {
     setErr(null);
@@ -56,7 +62,10 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
     }
   }
 
-  // the detention clock: real endpoint when it exists, local sim when it doesn't
+  // The detention clock is Payday's, not ours: /api/arrive starts it and this
+  // polls the real state. The local clock below is a degraded mode for a dead
+  // backend only — it is labelled as an estimate so it can never pass as the
+  // federal-grade evidence the real one produces.
   useEffect(() => {
     if (screen !== "dock" || !picked) return;
     let alive = true;
@@ -65,39 +74,47 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
       if (!alive) return;
       try {
         const d = await api.detention();
-        if (d && d.active) { setDet(d); return; }
-      } catch { /* fall through to the local clock */ }
-      // Capped: if someone leaves this screen open mid-demo the meter must not
-      // drift into numbers that dwarf the load itself and read as fake.
+        if (d && d.active) { setDet({ ...d, estimated: false }); return; }
+        if (d) return; // clock armed but not reporting yet — do not invent one
+      } catch { /* backend unreachable: fall through */ }
       const onSite = Math.min(MAX_ON_SITE_MIN, ((Date.now() - started) / 1000) * SIM_MIN_PER_TICK);
       const billable = Math.max(0, onSite - FREE_MIN);
-      const timeline: DetentionState["timeline"] = [
-        { ts: 0, label: `Arrived at ${picked.dest}. Your location was recorded.`, kind: "ok" },
-      ];
-      let status: DetentionState["status"] = "FREE_WINDOW";
-      if (onSite > FREE_MIN) {
-        status = "METER_RUNNING";
-        timeline.push({ ts: 1, label: "Free waiting time is up. The meter started.", kind: "money" });
-      }
-      if (onSite > FREE_MIN + 20) {
-        status = "NOTICE_SENT";
-        timeline.push({ ts: 2, label: "Your agent emailed the broker, with the timestamps attached.", kind: "ok" });
-      }
-      if (onSite > FREE_MIN + 60) {
-        status = "CLAIM_FILED";
-        timeline.push({ ts: 3, label: "No reply. Your agent filed the detention claim for you.", kind: "money" });
-      }
       setDet({
-        active: true, posting_id: picked.id, stop: picked.dest,
+        active: true, estimated: true, posting_id: picked.id, stop: picked.dest,
         free_minutes: FREE_MIN, minutes_on_site: onSite, billable_minutes: billable,
         rate_per_hour: RATE_HR, owed: (billable / 60) * RATE_HR,
-        notice_sent: onSite > FREE_MIN + 20, status, timeline,
+        status: onSite > FREE_MIN ? "METER_RUNNING" : "FREE_WINDOW",
+        timeline: [{ ts: 0, label: "Offline — timing this on the phone until the desk is back.", kind: "info" }],
       });
     };
     tick();
-    const t = setInterval(tick, 1000);
+    const t = setInterval(tick, 1500);
     return () => { alive = false; clearInterval(t); };
   }, [screen, picked]);
+
+  /** Tapping a load runs the Verifier for real: SAFER retrieval, the callback
+   *  cross-check and the memory graph. Nothing on this screen is pre-written. */
+  async function openScan(l: DriverLoad) {
+    setVerifying(l);
+    setScan(null);
+    setScreen("verify");
+    try {
+      const r = await api.screen(l.id);
+      const v = r.verifier ?? r.ghost ?? {};
+      const checks = toChecks(v.checks);
+      setScan({ checks, verdict: v.verdict ?? (l.blocked ? "REFUSE" : "CLEAR") });
+    } catch {
+      // The board already carries a verdict and its reasons; fall back to those
+      // rather than inventing federal findings we did not actually retrieve.
+      setScan({
+        checks: l.reasons.map((r) => ({
+          q: r, detail: "From this load's screening",
+          verdict: l.blocked ? ("fail" as const) : ("pass" as const),
+        })),
+        verdict: l.blocked ? "REFUSE" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR",
+      });
+    }
+  }
 
   const onTrip = screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
 
@@ -146,14 +163,14 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         {hasMapsKey && !mapFailed ? (
           <>
             <GoogleMapCanvas pins={pins} routes={routes} focus={focus}
-              geofenceMi={screen === "dock" ? 40 : undefined}
+              geofenceMi={screen === "dock" ? 2 : undefined}
               onFail={() => setMapFailed(true)} />
             {screen === "hunting" && <ScanOverlay />}
           </>
         ) : (
           <MapCanvas pins={pins} routes={routes} focus={focus}
             scanning={screen === "hunting"}
-            geofenceMi={screen === "dock" ? 40 : undefined} />
+            geofenceMi={screen === "dock" ? 2 : undefined} />
         )}
 
         {(screen === "home" || screen === "hunting") && (
@@ -180,11 +197,18 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         {screen === "home" && <Home onHunt={hunt} driver={truck?.driver} />}
         {screen === "hunting" && <Hunting />}
         {screen === "loads" && board && (
-          <Loads board={board} onPick={(l) => { setVerifying(l); setScreen("verify"); }} />
+          <Loads board={board} onPick={openScan} />
         )}
         {screen === "trip" && picked && (
           <Trip load={picked} here={here} onArrive={async () => {
-            try { await api.arrive(picked.id, here[0], here[1]); } catch { /* sim clock covers it */ }
+            setDet({ active: false });
+            const at: [number, number] = [picked.dest_lat, picked.dest_lng];
+            setDockPos(at);
+            try {
+              await api.arrive(picked.id, at[0], at[1]);
+            } catch (e: any) {
+              setErr(`Arrival did not reach the desk — ${e.message ?? e}`);
+            }
             setScreen("dock");
           }} />
         )}
@@ -212,7 +236,8 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         )}
         {screen === "paid" && picked && (
           <Paid load={picked} owed={det.owed ?? 0} onDone={() => {
-            setPicked(null); setPodImg(null); setDet({ active: false }); setScreen("home");
+            setPicked(null); setPodImg(null); setDet({ active: false });
+            setDockPos(null); setScreen("home");
           }} />
         )}
       </div>
@@ -220,8 +245,11 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
       {screen === "verify" && verifying && (
         <VerifyScan
           broker={verifying.broker}
-          checks={checksFor(verifying)}
+          checks={scan?.checks ?? []}
+          verdict={scan?.verdict}
+          loading={!scan}
           onDone={(blocked) => {
+            setScan(null);
             if (blocked) { setVerifying(null); setScreen("loads"); return; }
             setPicked(verifying); setVerifying(null); setScreen("trip");
           }}
@@ -256,26 +284,41 @@ function Place({ gps, city, big }: { gps: boolean; city?: string; big?: boolean 
   );
 }
 
-/** Turn the backend's verdict into the five questions a bystander would ask. */
-function checksFor(l: DriverLoad): ScanCheck[] {
-  const bad = l.blocked;
-  return [
-    { q: "Is this a real company?", detail: "Federal motor carrier registry (FMCSA)",
-      verdict: bad ? "fail" : "pass",
-      found: bad ? `No active operating authority on file for ${l.mc}` : undefined },
-    { q: "How old is their website?", detail: "Domain registration record",
-      verdict: bad ? "fail" : "pass",
-      found: bad ? "Registered 11 days ago" : undefined },
-    { q: "Does their phone number match the registry?", detail: "Load posting vs. federal record",
-      verdict: bad ? "fail" : "pass",
-      found: bad ? "Posting says 312-555-0142 · registry says 312-555-0198" : undefined },
-    { q: "Have they paid other drivers?", detail: "Payment history on this lane",
-      verdict: bad ? "warn" : "pass",
-      found: bad ? "No completed loads on record" : undefined },
-    { q: "Do we remember them?", detail: "Your carrier's memory",
-      verdict: bad ? "fail" : "pass",
-      found: bad ? "Same bank routing number as a company that owes you $4,000" : undefined },
-  ];
+/** The plain-English question each federal/memory check actually answers. The
+ *  evidence string is the agent's own words — we never invent it here. */
+const CHECK_COPY: Record<string, { q: string; detail: string }> = {
+  safer:     { q: "Is this a real company?",                    detail: "Federal carrier registry (SAFER)" },
+  callback:  { q: "Does their phone number match the registry?", detail: "Load posting vs. the federal record" },
+  authority: { q: "Are they licensed to broker freight?",        detail: "FMCSA Licensing & Insurance" },
+  insurance: { q: "Is their bond on file?",                      detail: "FMCSA surety bond record" },
+  oos:       { q: "Have they been shut down?",                   detail: "Out-of-service orders" },
+  domain:    { q: "How old is their website?",                   detail: "Domain registration (RDAP)" },
+  phone:     { q: "Is anyone else using this number?",           detail: "Your carrier's memory" },
+  ach:       { q: "Is their bank account shared?",               detail: "Your carrier's memory" },
+  payment:   { q: "Have they paid you before?",                  detail: "Payment history" },
+  detention: { q: "Do they pay for waiting time?",               detail: "Detention claim history" },
+};
+
+interface VerifierCheck {
+  key: string; name: string; ok: boolean; warn: boolean; skipped: boolean; evidence?: string;
+}
+
+/** Map the Verifier's real checks onto the scan rows. Skipped checks are dropped
+ *  rather than shown as passes — "we could not look" is not "it is clean". */
+function toChecks(list: VerifierCheck[] | undefined): ScanCheck[] {
+  if (!list?.length) return [];
+  return list
+    .filter((c) => !c.skipped)
+    .map((c) => {
+      const copy = CHECK_COPY[c.key] ?? { q: c.name, detail: "Verifier" };
+      return {
+        q: copy.q,
+        detail: copy.detail,
+        verdict: c.ok ? ("pass" as const) : c.warn ? ("warn" as const) : ("fail" as const),
+        // Only surface evidence when it says something; a passing row stays quiet.
+        found: c.ok ? undefined : c.evidence,
+      };
+    });
 }
 
 function Home({ onHunt, driver }: { onHunt: () => void; driver?: string }) {

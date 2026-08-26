@@ -92,7 +92,7 @@ export default function App() {
             L
           </div>
           <div className="min-w-0">
-            <div className="text-[15px] font-semibold tracking-[-0.015em]">Sentinel</div>
+            <div className="text-[15px] font-semibold tracking-[-0.015em]">Lumper Backstop</div>
             <div className="truncate text-[10.5px] text-muted-foreground">Autonomous freight desk</div>
           </div>
         </div>
