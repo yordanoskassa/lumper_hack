@@ -34,7 +34,9 @@ export function useStream(onState?: (runId: string, state: any) => void,
         return;
       }
       setTrace((prev) => {
-        const next = prev.length > 600 ? prev.slice(-600) : prev.slice();
+        // Bounded so a long demo cannot grow the buffer without limit; the
+        // Trace view renders a smaller tail of this again.
+        const next = prev.length > 400 ? prev.slice(-400) : prev.slice();
         next.push(e);
         return next;
       });

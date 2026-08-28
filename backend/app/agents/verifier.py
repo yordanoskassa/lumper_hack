@@ -55,8 +55,9 @@ CHECK_WEIGHTS = {
 # re-screens the entire board every few seconds. data.transportation.gov
 # throttles unauthenticated clients, so an un-cached poll loop would burn
 # through the hourly budget and take the live retrieval down mid-demo. Only
-# the silent (polling) path reads this cache; an interactive screen and a
-# board scan always pull fresh, so what a judge watches is never a replay.
+# the polling path and the desk's first paint read this cache. Anything a judge
+# is actually watching — tapping a broker, or pressing Re-scan — always pulls
+# fresh, so a demonstrated retrieval is never a replay.
 _FED_TTL_S = 600.0
 _fed_cache: dict[tuple, tuple[float, dict]] = {}
 
@@ -72,11 +73,14 @@ class Verifier(Agent):
     # ---- screening ------------------------------------------------------
 
     async def screen(self, run_id: str, mc: str, *, posting: dict | None = None,
-                     quiet: bool = False, silent: bool = False) -> dict:
+                     quiet: bool = False, silent: bool = False,
+                     use_cache: bool = False, explain: bool = True) -> dict:
         """`quiet` = bulk board screening: no narration, but a callback mismatch
         still shouts. `silent` = the driver app polling every few seconds: run
         the identical checks and emit nothing at all."""
         quiet = quiet or silent
+        # `silent` implies caching; `use_cache` asks for it without the silence.
+        use_cache = use_cache or silent
         broker = await bank.get("brokers", mc)
         name = (broker or {}).get("name", mc)
         if not quiet:
@@ -101,7 +105,7 @@ class Verifier(Agent):
         # A single interactive screen always pulls, whatever the answer is.
         synthetic = bool(broker) and not broker.get("real_mc")
         fed = ({"found": False, "bulk_skip": True} if quiet and synthetic
-               else await self._safer(run_id, mc, broker, posting, quiet, silent))
+               else await self._safer(run_id, mc, broker, posting, quiet, silent, use_cache))
         frec = fed.get("record") or {}
 
         # QCMobile needs a WebKey; SAFER's Licensing & Insurance record is the
@@ -192,8 +196,11 @@ class Verifier(Agent):
                   "callback": cb, "memories": memories, "tone": tone,
                   "federal": fed, "posting_id": (posting or {}).get("id")}
         # Bulk board screening uses the deterministic template summary; only an
-        # interactive single screen spends a live Gemini call on the prose.
-        if quiet:
+        # interactive single screen spends a live Gemini call on the prose. The
+        # driver's phone asks for `explain=False`: it renders the evidence rows,
+        # never the prose, and a driver at a dock should not wait ~7s for a
+        # paragraph nothing on that screen displays.
+        if quiet or not explain:
             neighbors = {x["_key"]: x for x in col["phone"] + col["ach"]}
             result["summary"] = _template_summary(result, neighbors, memories)
         else:
@@ -219,7 +226,8 @@ class Verifier(Agent):
                             latency_ms=res.latency_ms, tone=tone, msg=msg))
 
     async def _safer(self, run_id: str, mc: str, broker: dict | None,
-                     posting: dict | None, quiet: bool, silent: bool) -> dict:
+                     posting: dict | None, quiet: bool, silent: bool,
+                     use_cache: bool = False) -> dict:
         """Pull the federal record and diff the posting against it.
 
         Two live, keyless calls through the Gateway: `safer.lookup` for the
@@ -229,7 +237,7 @@ class Verifier(Agent):
         make is not evidence."""
         key = (mc, (posting or {}).get("cph"), (posting or {}).get("cem"),
                (broker or {}).get("name"))
-        if silent:
+        if use_cache or silent:
             hit = _fed_cache.get(key)
             if hit and time.time() - hit[0] < _FED_TTL_S:
                 return hit[1]

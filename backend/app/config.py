@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # --- State: Mongo if reachable, JSON snapshot otherwise ---
     mongo_uri: str = "mongodb://localhost:27017"
-    mongo_db: str = "sentinel"
+    mongo_db: str = "lumper_backstop"
 
     # --- Gmail OAuth token file. Reserved for a future Gmail sender; nothing
     #     reads it today, and it deliberately does NOT unlock a live send —

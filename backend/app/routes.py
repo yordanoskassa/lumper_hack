@@ -9,6 +9,7 @@ card should never meet an acronym, and the reasons a load was blocked have to
 make sense to someone who has never heard of double-brokering."""
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, Body
@@ -96,8 +97,35 @@ async def desk():
     postings = [p for p in postings if p["mc"] not in blacklist]
     board = await dispatch().finder.evaluate_board(
         run_id, postings, tenant_doc["truck"], tenant_doc["floor_rpm"], blacklist)
+    # These screens are independent network work, so running them one after
+    # another made the desk wait for the sum of every federal lookup. Fan out,
+    # but bounded — the federal endpoints throttle a burst. Two postings from the
+    # same broker with the same contact details can only produce the same
+    # verdict, so they screen once and share it (the docket-hijack posting keeps
+    # its own entry precisely because its contact differs).
+    sem = asyncio.Semaphore(6)
+
+    async def screen_once(mc: str, posting: dict) -> dict:
+        async with sem:
+            # The first paint of the board is not a demonstrated retrieval, so it
+            # may serve a cached federal record. Re-scan and tapping a broker do not.
+            return await dispatch().verifier.screen(
+                run_id, mc, posting=posting, quiet=True, use_cache=True)
+
+    def contact_key(m: dict) -> tuple:
+        p = m["posting"]
+        return (m["mc"], p.get("phone"), p.get("email"), p.get("contact"))
+
+    unique: dict[tuple, dict] = {}
     for m in board["all_rows"]:
-        g = await dispatch().verifier.screen(run_id, m["mc"], posting=m["posting"], quiet=True)
+        unique.setdefault(contact_key(m), m)
+    keys = list(unique)
+    results = await asyncio.gather(
+        *(screen_once(unique[k]["mc"], unique[k]["posting"]) for k in keys))
+    by_key = dict(zip(keys, results))
+
+    for m in board["all_rows"]:
+        g = by_key[contact_key(m)]
         m["ghost"] = {"verdict": g["verdict"], "score": g["score"], "failed": g["failed"],
                       "callback_mismatch": g["callback"].get("mismatch", False)}
     snap = await desk_snapshot(board, tenant_doc["truck"], tenant_doc, len(postings))
@@ -108,7 +136,8 @@ async def desk():
 async def screen(body: dict = Body(...)):
     run_id = body.get("run_id") or runs.new_run_id()
     mc, posting = await dispatch()._resolve_mc(body["mc"])
-    g = await dispatch().verifier.screen(run_id, mc, posting=posting)
+    g = await dispatch().verifier.screen(
+        run_id, mc, posting=posting, explain=bool(body.get("explain", True)))
     return {"run_id": run_id, "ghost": g, "verifier": g}
 
 

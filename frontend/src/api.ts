@@ -137,11 +137,13 @@ export const api = {
   tenant: () => fetch("/api/tenant").then(jn<any>),
   desk: () => fetch("/api/desk").then(jn<Desk>),
   scan: () => fetch("/api/scan", { method: "POST" }).then(jn<any>),
-  screen: (mc: string, run_id?: string) =>
+  /** `explain: false` skips the Gemini prose. The driver app renders the
+   *  evidence rows and never the paragraph, and it halves the wait. */
+  screen: (mc: string, run_id?: string, explain = true) =>
     fetch("/api/screen", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ mc, run_id }),
+      body: JSON.stringify({ mc, run_id, explain }),
     }).then(jn<any>),
   book: (posting_id: string, rate?: number) =>
     fetch("/api/book", {

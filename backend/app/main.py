@@ -1,4 +1,4 @@
-"""Lumper Sentinel — Fortified Enterprise Fleet demo backend."""
+"""Lumper Backstop — Fortified Enterprise Fleet demo backend."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Lumper Sentinel", lifespan=lifespan)
+app = FastAPI(title="Lumper Backstop", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(router)
@@ -40,4 +40,4 @@ app.include_router(router)
 
 @app.get("/api")
 async def index():
-    return {"service": "Lumper Sentinel", "track": "Fortified Enterprise Fleet"}
+    return {"service": "Lumper Backstop", "track": "Fortified Enterprise Fleet"}

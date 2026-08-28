@@ -30,6 +30,12 @@ const TONE_FG: Record<string, string> = {
   fail: "text-bad", red: "text-bad",
 };
 
+/** The stream buffers hundreds of events over a demo, and mounting every one of
+ *  them is what made the desk feel slow — the cost grew for as long as the fleet
+ *  ran. The pane auto-scrolls to the newest line, so only the tail is ever read;
+ *  render that and report the true total in the header. */
+const VISIBLE = 140;
+
 export function Trace({ trace, connected, height = 460 }: {
   trace: TraceEvent[]; connected: boolean; height?: number | string;
 }) {
@@ -60,7 +66,7 @@ export function Trace({ trace, connected, height = 460 }: {
               awaiting fleet activity<span className="blink">_</span>
             </div>
           )}
-          {trace.map((e) => {
+          {trace.slice(-VISIBLE).map((e) => {
             const tone = e.tone ?? "";
             const id = e.agent ?? "";
             // agent_name ships alongside agent but predates the TraceEvent type

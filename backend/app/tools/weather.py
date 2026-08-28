@@ -7,7 +7,7 @@ import httpx
 
 from ..platform.gateway import ToolResult, tool
 
-HEADERS = {"User-Agent": "LumperSentinel/1.0 (hackathon demo; contact ops@example.com)",
+HEADERS = {"User-Agent": "LumperBackstop/1.0 (hackathon demo; contact ops@example.com)",
            "Accept": "application/geo+json"}
 
 

@@ -99,7 +99,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
     setScan(null);
     setScreen("verify");
     try {
-      const r = await api.screen(l.id);
+      const r = await api.screen(l.id, undefined, false);
       const v = r.verifier ?? r.ghost ?? {};
       const checks = toChecks(v.checks);
       setScan({ checks, verdict: v.verdict ?? (l.blocked ? "REFUSE" : "CLEAR") });
