@@ -20,6 +20,9 @@ const SUGGESTIONS = [
   "Run the detention scenario",
 ];
 
+// The federal retrieval is not limited to seeded brokers: any live docket
+// works. The input placeholder invites a judge to try their own.
+
 export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route: string) => void }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -113,7 +116,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send(input)}
-          placeholder="Tell the fleet what to do…"
+          placeholder="Tell the fleet what to do — or type any real MC number"
           aria-label="Message Dispatch"
           className="h-11 text-[13px]"
         />
