@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PUBLISHER = "Lumper Logistics LLC";
-const INTEGRATIONS = ["gemini", "maps", "eia", "fmcsa"] as const;
+const INTEGRATIONS = ["gemini", "maps", "eia", "fmcsa", "weather", "rdap"] as const;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -75,11 +75,17 @@ export function Registry() {
               <SectionLabel>Platform health</SectionLabel>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                 {INTEGRATIONS.map((k) => (
-                  <div key={k} className="flex items-center justify-between gap-2">
+                  <div key={k} className="flex items-center justify-between gap-2"
+                    title={health?.detail?.[k] ?? undefined}>
                     <span className="mono text-[11px] text-foreground/75">{k}</span>
                     <BackendTag backend={integrations[k] ? "live" : "fallback"} />
                   </div>
                 ))}
+                <div className="col-span-2 flex items-center justify-between gap-2"
+                  title={health?.detail?.loadboard ?? undefined}>
+                  <span className="mono text-[11px] text-foreground/75">loadboard</span>
+                  <BackendTag backend="sandbox" />
+                </div>
               </div>
               <Separator className="my-2" />
               <div className="flex flex-col gap-1">

@@ -206,7 +206,14 @@ class Verifier(Agent):
         else:
             verdict, tone = "CLEAR", "pass"
 
+        # A callback mismatch is a finding against the POSTING, not against the
+        # company whose docket was hijacked. They are the victim here, and they
+        # are a real, licensed, named business — badging them REFUSE is both
+        # wrong and defamatory.
+        impersonated = bool(cb.get("mismatch"))
+        posing_as = (cb.get("owners") or [{}])[0].get("name") if impersonated else None
         result = {"mc": mc, "broker": name, "verdict": verdict, "score": score,
+                  "impersonated": impersonated, "posing_as": posing_as,
                   "checks": checks, "failed": len(failed), "collisions": col,
                   "callback": cb, "memories": memories, "tone": tone,
                   "federal": fed, "posting_id": (posting or {}).get("id")}

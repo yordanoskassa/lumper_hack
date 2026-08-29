@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import StreamingResponse
 
 from .agents.verifier import _blacklist
@@ -25,6 +25,22 @@ from .platform.registry import cards
 from .platform.runtime import runs
 
 router = APIRouter(prefix="/api")
+
+
+def _need(body: dict, *keys: str):
+    """Required fields, as a 400 with the missing name rather than a bare 500.
+    A demo typo should say what it wants, not hand the room a stack trace."""
+    missing = [k for k in keys if body.get(k) in (None, "")]
+    if missing:
+        raise HTTPException(400, f"missing required field(s): {', '.join(missing)}")
+    return [body[k] for k in keys] if len(keys) > 1 else body[keys[0]]
+
+
+def _coords(body: dict) -> tuple[float, float]:
+    try:
+        return float(body["lat"]), float(body["lng"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(400, "lat and lng must be numbers")
 _dispatch: Dispatch | None = None
 _chat_history: list[dict] = []
 
@@ -40,10 +56,30 @@ def dispatch() -> Dispatch:
 async def health():
     from .config import settings
     s = settings()
+    # Report the CAPABILITY, not whether a key happens to be set. Diesel and the
+    # federal record are both genuinely live with no key at all, and a tile that
+    # said "eia: FALLBACK" next to a live EIA read — or "fmcsa: FALLBACK" beside
+    # Verifier's live SAFER retrieval — had the product contradicting its own
+    # pitch on the one screen built to prove the pitch.
     return {"ok": True, "memory": bank.driver,
-            "integrations": {"gemini": s.has_gemini, "maps": s.has_maps,
-                             "eia": s.has_eia, "fmcsa": s.has_fmcsa,
-                             "loadboard": s.loadboard_adapter},
+            "integrations": {
+                "gemini": s.has_gemini,
+                "maps": s.has_maps,
+                # EIA weekly diesel: keyed v2 API, else EIA's own published
+                # weekly series. Live either way.
+                "eia": True,
+                # SAFER (L&I + Census) is keyless and live; a WebKey only adds
+                # the out-of-service check, which the UI marks as skipped.
+                "fmcsa": True,
+                "weather": True,
+                "rdap": True,
+                "loadboard": s.loadboard_adapter,
+            },
+            "detail": {
+                "eia": "live" if s.has_eia else "live · EIA public weekly series (no key)",
+                "fmcsa": "live" if s.has_fmcsa else "live · SAFER keyless (no out-of-service without a WebKey)",
+                "loadboard": "sandbox · vendor agreement required",
+            },
             "model": s.gemini_model}
 
 
@@ -146,7 +182,7 @@ async def desk():
 @router.post("/screen")
 async def screen(body: dict = Body(...)):
     run_id = body.get("run_id") or runs.new_run_id()
-    mc, posting = await dispatch()._resolve_mc(body["mc"])
+    mc, posting = await dispatch()._resolve_mc(_need(body, "mc"))
     g = await dispatch().verifier.screen(
         run_id, mc, posting=posting, explain=bool(body.get("explain", True)))
     return {"run_id": run_id, "ghost": g, "verifier": g}
@@ -154,7 +190,7 @@ async def screen(body: dict = Body(...)):
 
 @router.post("/book")
 async def book(body: dict = Body(...)):
-    posting_id = body["posting_id"]
+    posting_id = _need(body, "posting_id")
     rate = body.get("rate")
     run = await runs.create("book", {"posting_id": posting_id})
     run_id = run["run_id"]
@@ -165,7 +201,7 @@ async def book(body: dict = Body(...)):
 @router.post("/refuse")
 async def refuse(body: dict = Body(...)):
     run_id = body.get("run_id") or runs.new_run_id()
-    mc = body["mc"]
+    mc = _need(body, "mc")
     bl = await dispatch()._refuse(run_id, mc)
     return {"run_id": run_id, "blacklist": bl}
 
@@ -222,6 +258,8 @@ async def loads():
             "net": m["net"], "deadhead": m["deadhead"], "eq": p.get("eq", "Dry van"),
             "drive_h": m["drive_h"], "lane_avg": round(m["lane_avg"], 2),
             "verdict": verdict, "risk": risk, "blocked": verdict == "BLOCKED",
+            "impersonated": bool(g.get("impersonated")),
+            "posing_as": g.get("posing_as"),
             "reasons": _driver_reasons(m, g, broker, verdict, tenant_doc),
         }
         owed = round(sum(float(c.get("owed", 0) or 0) for c in claims
@@ -239,21 +277,21 @@ async def loads():
 @router.post("/arrive")
 async def arrive(body: dict = Body(...)):
     """Driver hit ARRIVED at a dock. Payday arms the detention clock."""
-    posting_id = body["posting_id"]
+    posting_id = _need(body, "posting_id")
+    lat, lng = _coords(body)
     run = await runs.create("detention", {"posting_id": posting_id})
     run_id = run["run_id"]
-    runs.launch(run_id, dispatch().payday.watch_detention(
-        run_id, posting_id, float(body["lat"]), float(body["lng"])))
+    runs.launch(run_id, dispatch().payday.watch_detention(run_id, posting_id, lat, lng))
     return {"run_id": run_id, "started": True}
 
 
 @router.post("/depart")
 async def depart(body: dict = Body(...)):
     """Driver rolled off the property. Close the clock, total it, file it."""
-    posting_id = body["posting_id"]
+    posting_id = _need(body, "posting_id")
+    lat, lng = _coords(body)
     run_id = body.get("run_id") or runs.new_run_id()
-    out = await dispatch().payday.close_detention(
-        run_id, posting_id, float(body["lat"]), float(body["lng"]))
+    out = await dispatch().payday.close_detention(run_id, posting_id, lat, lng)
     if out.get("error"):
         return {"run_id": run_id, "minutes_on_site": 0, "billable_minutes": 0,
                 "owed": 0.0, "claim_filed": False, "error": out["error"]}
@@ -283,7 +321,7 @@ async def detention():
 async def pod(body: dict = Body(...)):
     """Proof of delivery off the phone. Payday checks the photo's GPS against
     the load's delivery point before anything reaches an invoice."""
-    posting_id = body["posting_id"]
+    posting_id = _need(body, "posting_id")
     run = await runs.create("pod", {"posting_id": posting_id})
     run_id = run["run_id"]
     runs.launch(run_id, _pod_flow(run_id, posting_id, body.get("image_b64", ""),
@@ -376,9 +414,16 @@ def _driver_reasons(m: dict, g: dict, broker: dict, verdict: str,
         if money and money.get("mc") == g["mc"]:
             r.append(f"They already took ${money['amount']:,.0f} off you "
                      f"{_weeks(money.get('days_ago', 0))} and never paid")
-        elif money:
+        elif money and g.get("collisions", {}).get("ach"):
+            # Only claim a shared account when a collision was actually found.
+            # `_recall` also probes the impostor's ACH, so this memory surfaces
+            # on brokers who share nothing — and printing it on the card of the
+            # company whose docket was hijacked accuses the victim.
             r.append(f"Shares a bank account with a company that never paid you "
                      f"${money['amount']:,.0f}")
+        elif money and cb.get("mismatch"):
+            r.append(f"The number on this posting traces to a company that owes "
+                     f"you ${money['amount']:,.0f}")
         elif ring:
             r.append("Tied to a company that took a load from us and went quiet")
         return r[:4] or ["Too many warning signs — not worth the risk"]
