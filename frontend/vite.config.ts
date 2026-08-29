@@ -12,7 +12,11 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "./src") },
   },
   server: {
-    port: Number(process.env.PORT) || 5173,
+    // Not 5173. That is the Vite default, so every other project on this
+    // machine competes for it — and one of them wins on IPv6, which is what
+    // `localhost` resolves to first. Typing localhost:5173 on stage loaded a
+    // different product entirely.
+    port: Number(process.env.PORT) || 5180,
     strictPort: false,
     proxy: {
       "/api": { target: "http://127.0.0.1:8787", changeOrigin: true },

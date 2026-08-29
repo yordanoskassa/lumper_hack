@@ -137,7 +137,7 @@ No customer data is used. Broker names and domains are synthetic (`.example.*`).
 bash scripts/dev.sh
 ```
 
-Backend → http://127.0.0.1:8787 · Frontend → http://127.0.0.1:5173
+Backend → http://127.0.0.1:8787 · Frontend → http://127.0.0.1:5180
 The phone view is the same URL on your network, or add it to your home screen.
 
 All API keys are **optional** — copy `.env.example` to `.env` and add any you

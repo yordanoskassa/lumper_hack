@@ -57,10 +57,20 @@ export function DetentionCard({ d }: { d: DetentionState }) {
 
   // Payday emits a running "Nh on site — $X owed" line every half hour. They are
   // one fact, not twelve: keep the milestones and only the most recent total.
-  const raw = d.timeline ?? [];
+  const raw = [...(d.timeline ?? [])].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
   const isTicker = (l: string) => /on site\s+—\s+\$/.test(l);
   const lastTicker = raw.map((t) => t.label).filter(isTicker).at(-1);
-  const events = raw.filter((t) => !isTicker(t.label) || t.label === lastTicker);
+  // Payday can emit the same milestone more than once across escalation cycles,
+  // and out of order. Repeating "Claim filed for $525.00" three times, with
+  // "(3 of 3)" above "(2 of 3)", makes the agent look confused about its own
+  // work — on the screen whose entire job is being the credible record.
+  const seenLabel = new Set<string>();
+  const events = raw.filter((t) => {
+    if (isTicker(t.label)) return t.label === lastTicker;
+    if (seenLabel.has(t.label)) return false;
+    seenLabel.add(t.label);
+    return true;
+  });
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">

@@ -86,6 +86,9 @@ export interface DriverLoad {
   verdict: "CLEAR" | "REVIEW" | "BLOCKED";
   risk: number;
   blocked: boolean;
+  /** The docket is real and licensed; the POSTING is the forgery. */
+  impersonated?: boolean;
+  posing_as?: string | null;
   reasons: string[];
 }
 

@@ -23,12 +23,21 @@ const SUGGESTIONS = [
 // The federal retrieval is not limited to seeded brokers: any live docket
 // works. The input placeholder invites a judge to try their own.
 
-export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route: string) => void }) {
+export const CHAT_GREETING: Msg = {
+  role: "assistant",
+  text: "Dispatch here. I route the fleet — Finder, Verifier, Closer and Payday. Tell me what to run, or tap a suggestion below.",
+};
+
+/** `local` is owned by App. Closing the panel used to unmount this component and
+ *  take the answer with it, so every command destroyed its own reply. */
+export function Chat({ chatFeed, local, setLocal, onRoute }: {
+  chatFeed: Msg[];
+  local: Msg[];
+  setLocal: React.Dispatch<React.SetStateAction<Msg[]>>;
+  onRoute?: (route: string) => void;
+}) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [local, setLocal] = useState<Msg[]>([
-    { role: "assistant", text: "Dispatch here. I route the fleet — Finder, Verifier, Closer and Payday. Tell me what to run, or tap a suggestion below." },
-  ]);
   const ref = useRef<HTMLDivElement>(null);
 
   // Merge server-streamed chat turns (from other surfaces) with local ones.
@@ -103,7 +112,7 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
             size="sm"
             disabled={busy}
             onClick={() => send(s)}
-            className="h-9 rounded-full text-[11.5px]"
+            className="h-11 rounded-full text-[11.5px]"
           >
             {s}
           </Button>
@@ -130,8 +139,10 @@ export function Chat({ chatFeed, onRoute }: { chatFeed: Msg[]; onRoute?: (route:
 }
 
 function mergeChat(local: Msg[], feed: Msg[]): Msg[] {
-  // feed carries chat turns initiated elsewhere; dedupe against local by text.
+  // Turns started on another surface arrive on the stream. They happened before
+  // anything typed here, so they sort first — appending them made a new question
+  // render above an older answer while auto-scroll jumped to the stale one.
   const seen = new Set(local.map((m) => m.role + "|" + m.text));
   const extra = feed.filter((m) => !seen.has(m.role + "|" + m.text));
-  return [...local, ...extra];
+  return [extra.length ? extra : [], local].flat();
 }

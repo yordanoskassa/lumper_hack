@@ -21,12 +21,16 @@ export function VerifyScan({
   broker,
   checks,
   verdict,
+  impersonated,
   loading,
   onDone,
   stepMs = 340,
 }: {
   broker: string;
   checks: Check[];
+  /** True when the docket holder is real and the posting is the forgery. The
+   *  screen must never badge a licensed company as the fraudster. */
+  impersonated?: boolean;
   /** The Verifier's own call — REFUSE / REVIEW / CLEAR. A REVIEW has warnings
    *  but no hard failure, so it cannot be inferred from the rows alone. */
   verdict?: string;
@@ -61,7 +65,11 @@ export function VerifyScan({
 
       <div className="relative mx-auto w-full max-w-2xl">
         <div className="mono text-[10.5px] tracking-[0.14em] text-ok/80">BACKGROUND CHECK RUNNING</div>
-        <div className="mt-1.5 text-xl leading-tight font-semibold tracking-[-0.03em] sm:text-2xl">
+        {impersonated && (
+          <div className="mt-1.5 text-[13px] font-medium text-warn">Someone posing as</div>
+        )}
+        <div className={cn("text-xl leading-tight font-semibold tracking-[-0.03em] sm:text-2xl",
+          impersonated ? "mt-0.5" : "mt-1.5")}>
           {broker}
         </div>
 
@@ -109,7 +117,10 @@ export function VerifyScan({
                 : review ? "Take it, but watch them" : "This one is safe"}
             </div>
             <div className="mt-1.5 text-sm leading-snug text-muted-foreground">
-              {blocked ? "You would have hauled it and never been paid."
+              {blocked
+                ? impersonated
+                  ? "This company is real. Whoever posted this load is not them — you would have hauled it and never been paid."
+                  : "You would have hauled it and never been paid."
                 : review ? "They check out, but their record has a catch worth knowing."
                 : "Real company. They pay. Go get it."}
             </div>

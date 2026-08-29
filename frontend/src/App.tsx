@@ -6,7 +6,7 @@ import { api, type Desk as DeskData } from "@/api";
 import { useStream } from "@/useStream";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Chat } from "@/components/Chat";
+import { Chat, CHAT_GREETING } from "@/components/Chat";
 import { Desk } from "@/views/Desk";
 import { Driver } from "@/views/Driver";
 import { DriverApp } from "@/driver/DriverApp";
@@ -41,6 +41,7 @@ export default function App() {
   const [tenant, setTenant] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatLog, setChatLog] = useState([CHAT_GREETING]);
   const [activeAgents, setActiveAgents] = useState<Record<string, number>>({});
 
   const { trace, connected } = useStream(
@@ -59,7 +60,11 @@ export default function App() {
 
   useEffect(() => {
     const last = trace[trace.length - 1];
-    if (last?.agent) setActiveAgents((a) => ({ ...a, [last.agent!]: Date.now() }));
+    // The roster lists display names; the event carries the id in `agent` and
+    // the display name in `agent_name`. Keying on `agent` never matched, so
+    // every live indicator in the app was permanently dark.
+    const who = (last as { agent_name?: string })?.agent_name ?? last?.agent;
+    if (who) setActiveAgents((a) => ({ ...a, [who]: Date.now() }));
   }, [trace.length]);
 
   if (standalone()) {
@@ -186,7 +191,20 @@ export default function App() {
               >
                 <X className="size-4" /> <span className="lg:hidden">Close</span>
               </Button>
-              <Chat chatFeed={chatFeed} onRoute={() => setChatOpen(false)} />
+              <Chat
+                chatFeed={chatFeed}
+                local={chatLog}
+                setLocal={setChatLog}
+                onRoute={(route) => {
+                  // Take the operator where the answer landed instead of
+                  // dumping them on whatever view they happened to be on.
+                  const to: Record<string, View> = {
+                    scan_board: "desk", screen_broker: "desk",
+                    book_load: "desk", run_scenario: "desk",
+                  };
+                  if (to[route]) setView(to[route]);
+                }}
+              />
             </div>
           ) : (
             <Button

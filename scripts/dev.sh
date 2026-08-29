@@ -18,5 +18,5 @@ FRONT=$!
 
 trap 'kill $BACK $FRONT 2>/dev/null || true' EXIT
 echo "Backend  → http://127.0.0.1:8787/api/health"
-echo "Frontend → http://127.0.0.1:5173"
+echo "Frontend → http://127.0.0.1:5180"
 wait

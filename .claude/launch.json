@@ -4,9 +4,14 @@
     {
       "name": "sentinel-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "autoPort": true,
-      "port": 5173
+      "port": 5180
     }
   ]
 }

@@ -119,7 +119,12 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
   const onTrip = screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
 
   const pins = useMemo<Pin[]>(() => {
-    const out: Pin[] = [{ lat: here[0], lng: here[1], kind: "you", label: truck?.city ?? "You" }];
+    const out: Pin[] = [{
+      lat: here[0], lng: here[1], kind: "you",
+      // Once arrived, the origin city is the wrong label — it stacked "Joliet IL"
+      // on top of the destination pin.
+      label: dockPos ? "You" : truck?.city ?? "You",
+    }];
     if (screen === "loads" && board) {
       for (const l of board.loads.slice(0, 8)) {
         out.push({
@@ -130,7 +135,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
     }
     if (onTrip && picked) out.push({ lat: picked.dest_lat, lng: picked.dest_lng, kind: "dock", label: picked.dest });
     return out;
-  }, [screen, board, picked, here, truck, onTrip]);
+  }, [screen, board, picked, here, truck, onTrip, dockPos]);
 
   const routes = useMemo<MapRoute[]>(() => {
     if (onTrip) return picked ? [{ from: here, to: [picked.dest_lat, picked.dest_lng], tone: "active" }] : [];
@@ -146,7 +151,14 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
 
   const focus = useMemo<[number, number][] | undefined>(() => {
     if (screen === "home" || screen === "hunting") return [here];
-    if (picked && onTrip) return [here, [picked.dest_lat, picked.dest_lng]];
+    if (picked && onTrip) {
+      // At the dock `here` IS the destination. Two identical points make a
+      // zero-area bounds, which fitBounds answers with maximum zoom — a blank
+      // brown rectangle on the one screen where the map is the evidence.
+      const dest: [number, number] = [picked.dest_lat, picked.dest_lng];
+      const same = Math.abs(here[0] - dest[0]) < 1e-4 && Math.abs(here[1] - dest[1]) < 1e-4;
+      return same ? [dest] : [here, dest];
+    }
     if (board?.loads.length) {
       return [here, ...board.loads.slice(0, 8).map((l) => [l.dest_lat, l.dest_lng] as [number, number])];
     }
@@ -181,7 +193,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         {trace && trace.length > 0 && <TracePeek trace={trace} />}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:order-1 lg:border-r lg:border-border lg:p-8 lg:pb-8">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)] lg:order-1 lg:border-r lg:border-border lg:p-8 lg:pb-8">
         {(screen === "home" || screen === "hunting") && (
           <div className="mb-5 hidden lg:block">
             <Place gps={!!gps} city={truck?.city} big />
@@ -246,6 +258,7 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
         <VerifyScan
           broker={verifying.broker}
           checks={scan?.checks ?? []}
+          impersonated={verifying.impersonated}
           verdict={scan?.verdict}
           loading={!scan}
           onDone={(blocked) => {
@@ -409,7 +422,7 @@ function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => voi
       </div>
       <div className="mt-2 text-[15px] font-medium">{l.origin} → {l.dest}</div>
       <div className="num mt-0.5 text-[13px] text-muted-foreground">
-        {Math.round(l.miles)} miles · ${l.rpm.toFixed(2)} a mile
+        {Math.round(l.miles)} miles · ${l.rpm.toFixed(2)} a mile after fuel
       </div>
 
       <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
@@ -517,7 +530,17 @@ function Row({ k, v, accent }: { k: string; v: string; accent?: boolean }) {
 /** On a wide screen there is room to show the work behind the answer, so the
  *  agents' own trace floats over the map. A phone gets the outcome only. */
 function TracePeek({ trace }: { trace: TraceEvent[] }) {
-  const last = trace.slice(-7);
+  // Payday ticks the detention meter every simulated half hour, so the tail is
+  // often the same sentence seven times. Collapse runs of an identical message
+  // — this panel is the "watch the agents work" moment, and a stuck-looking
+  // repeat reads as a bug rather than a clock.
+  const dedup: TraceEvent[] = [];
+  for (const e of trace) {
+    const prev = dedup[dedup.length - 1];
+    if (prev && prev.agent === e.agent && prev.msg === e.msg) dedup[dedup.length - 1] = e;
+    else dedup.push(e);
+  }
+  const last = dedup.slice(-7);
   return (
     <div className="pointer-events-none absolute right-4 bottom-4 hidden w-95 max-w-[calc(100%-2rem)] rounded-xl border border-border bg-popover/85 px-4 py-3 backdrop-blur-md lg:block">
       <div className="mb-2 text-[10px] font-semibold tracking-[0.14em] text-ok uppercase">

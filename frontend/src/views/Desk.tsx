@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trace } from "@/components/Trace";
 
-interface RunRow { id: string; broker: string; stage: string; day: number; amount: number; status: string }
+interface RunRow { key: string; id: string; broker: string; stage: string; day: number; amount: number; status: string }
 
 const FILTERS = ["All", "Survivors", "Under 50mi DH", "Flagged"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -20,7 +20,7 @@ const COLS: { key: string; label: string; align: "left" | "right" }[] = [
   { key: "rate", label: "RATE", align: "left" },
   { key: "dh", label: "DH", align: "right" },
   { key: "mi", label: "MI", align: "right" },
-  { key: "rpm", label: "RPM", align: "right" },
+  { key: "rpm", label: "RPM NET", align: "right" },
   { key: "tag", label: "VERDICT", align: "right" },
 ];
 
@@ -139,10 +139,19 @@ export function Desk({ trace, connected, deskFromStream }: {
     setBusy(true);
     try { await api.reset(); await load(); setRuns([]); } finally { setBusy(false); }
   }
-  async function doBook() {
+  /** `Book load` takes the posting as it stands; `Counter & book` sends the
+   *  number you typed into the deal desk. They were both wired to the same
+   *  handler with the same rate, so the counter button was decoration that
+   *  quietly started a second identical run. */
+  async function doBook(rate?: number) {
     if (!selRow || !edit) return;
-    await api.book(selRow.id, Math.round(edit.rate));
-    setRuns((rs) => [{ id: selRow.id, broker: selRow.broker, stage: "Dispatch", day: 0, amount: Math.round(edit.rate), status: "on track" }, ...rs]);
+    const amount = Math.round(rate ?? selRow.rate ?? edit.rate);
+    await api.book(selRow.id, amount);
+    setRuns((rs) => [{
+      key: `${selRow.id}-${Date.now()}`,
+      id: selRow.id, broker: selRow.broker, stage: "Dispatch", day: 0,
+      amount, status: "on track",
+    }, ...rs]);
   }
   async function doRefuse() {
     if (!selRow) return;
@@ -162,12 +171,16 @@ export function Desk({ trace, connected, deskFromStream }: {
     );
   }
 
-  const flagged = graph?.flagged ?? desk.rows.filter((r) => r.blacklisted).length;
+  // Count what is actually on this board. The graph tally is 0 on fresh seed
+  // data and `0 ?? x` is 0, so the tile read "none on record" beside seven rows
+  // the Flagged filter was happy to show.
+  const flagged = desk.rows.filter((r) => r.ghost && r.ghost.verdict !== "CLEAR").length
+    || (graph?.flagged ?? 0);
 
   return (
     // Breakpoints do the responding, never a measured width: stacked cards is the
     // default and the six-column table is the lg-and-up upgrade.
-    <div className="h-full overflow-x-hidden overflow-y-auto px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:px-5 lg:px-6 lg:pb-6">
+    <div className="h-full overflow-x-hidden overflow-y-auto px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:px-5 lg:px-6 lg:pb-6">
       <div className="flex flex-col gap-3">
         {/* header */}
         <div className="flex flex-wrap items-end gap-3">
@@ -202,7 +215,7 @@ export function Desk({ trace, connected, deskFromStream }: {
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           <Tile k="Killed on cost" v={String(desk.kills)} sub={`of ${desk.pulled} pulled`} />
           <Tile k="Best RPM after cost" v={`$${desk.best_rpm.toFixed(2)}`} sub={`floor $${desk.floor_rpm.toFixed(2)}`} />
-          <Tile k="Brokers flagged" v={String(flagged)} sub={flagged ? "kept off this board" : "none on record"} accent={flagged > 0} />
+          <Tile k="Brokers flagged" v={String(flagged)} sub={flagged ? "Verifier said no" : "none on record"} accent={flagged > 0} />
           <Tile k="Detention rate" v={`$${desk.detention.rate_per_hour}/hr`} sub={`after ${desk.detention.free_hours}h free`} accent />
         </div>
 
@@ -315,14 +328,23 @@ export function Desk({ trace, connected, deskFromStream }: {
                 <CardContent className="flex flex-wrap items-center gap-2 py-3">
                   <Button
                     size="tap"
-                    onClick={doBook}
+                    onClick={() => doBook()}
                     disabled={busy || selRow.ghost?.verdict === "REFUSE" || selRow.blacklisted}
                     className="flex-1 sm:flex-none"
                   >
                     {selRow.blacklisted ? "Blocked" : selRow.ghost?.verdict === "REFUSE" ? "Override & book" : "Book load"}
                   </Button>
-                  <Button variant="outline" size="tap" onClick={doBook} className="flex-1 sm:flex-none">
-                    Counter & book
+                  <Button
+                    variant="outline"
+                    size="tap"
+                    onClick={() => doBook(edit?.rate)}
+                    disabled={
+                      busy || selRow.ghost?.verdict === "REFUSE" || selRow.blacklisted ||
+                      Math.round(edit?.rate ?? 0) === Math.round(selRow.rate ?? 0)
+                    }
+                    className="flex-1 sm:flex-none"
+                  >
+                    Counter at {money(Math.round(edit?.rate ?? 0))}
                   </Button>
                   <Button variant="destructive" size="tap" onClick={doRefuse} className="flex-1 sm:flex-none">
                     Refuse &amp; flag broker
@@ -352,7 +374,7 @@ export function Desk({ trace, connected, deskFromStream }: {
               ) : (
                 runs.map((r) => (
                   <div
-                    key={r.id}
+                    key={r.key}
                     className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 last:border-b-0"
                   >
                     <span className="mono text-xs">{r.id}</span>
@@ -406,7 +428,7 @@ function CandidateCard({ r, on, floor, onClick }: { r: DeskRow; on: boolean; flo
       </div>
       <div className="mt-2 text-[15px] font-medium break-words">{r.origin} → {r.dest}</div>
       <div className="mt-1 text-[13px] text-muted-foreground">
-        {Math.round(r.miles)} miles · <span className={rpmCls}>{r.rate ? `$${r.rpm.toFixed(2)}` : "—"}</span> a mile · {r.deadhead} mi deadhead
+        {Math.round(r.miles)} miles · <span className={rpmCls}>{r.rate ? `$${r.rpm.toFixed(2)}` : "—"}</span> a mile after fuel · {r.deadhead} mi deadhead
       </div>
 
       <Separator className="my-3" />

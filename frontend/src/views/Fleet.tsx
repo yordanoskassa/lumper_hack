@@ -52,13 +52,13 @@ export function Fleet({ trace }: { trace: TraceEvent[] }) {
 
   // Live activity per agent, keyed by name — lights up as the trace streams in.
   const activity: Record<string, number> = {};
-  for (const e of trace) if (e.agent) activity[e.agent] = (activity[e.agent] ?? 0) + 1;
+  for (const e of trace) if (e.agent) activity[((e as { agent_name?: string }).agent_name ?? e.agent)!] = (activity[((e as { agent_name?: string }).agent_name ?? e.agent)!] ?? 0) + 1;
 
   const loading = agents.length === 0;
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] sm:p-5 lg:pb-6">
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)] sm:p-5 lg:pb-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-semibold tracking-[-0.025em] sm:text-[26px]">The fleet</h1>
@@ -110,7 +110,7 @@ export function Fleet({ trace }: { trace: TraceEvent[] }) {
         {/* Agent cards */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {agents.map((a) => {
-            const count = activity[a.name] ?? 0;
+            const count = activity[a.name] ?? activity[a.key] ?? 0;
             return (
               <Card key={a.key} className="gap-0 py-0">
                 <CardHeader className="items-center gap-2 px-4 py-3">
