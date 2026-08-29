@@ -49,29 +49,51 @@ def phones_match(a: str | None, b: str | None) -> bool:
     return bool(x) and x == y
 
 
+class SaferUnreachable(RuntimeError):
+    """The federal endpoint did not answer. Distinct from 'no record found':
+    one means the broker is not registered, the other means we could not look.
+    Reporting the second as the first would clear a fraudster on a wifi blip."""
+
+
 async def _get(cx: httpx.AsyncClient, url: str, params: dict) -> list[dict]:
-    r = await cx.get(url, params=params, headers={"accept": "application/json"})
-    r.raise_for_status()
-    data = r.json()
+    try:
+        r = await cx.get(url, params=params, headers={"accept": "application/json"})
+        r.raise_for_status()
+        data = r.json()
+    except (httpx.HTTPError, ValueError) as e:
+        raise SaferUnreachable(type(e).__name__) from e
     return data if isinstance(data, list) else []
+
+
+def _unreachable(mc_number: str, why: str) -> ToolResult:
+    """Every other network tool degrades; this one used to take the whole
+    product down with it. data.transportation.gov throttles unauthenticated
+    clients, so a 429 mid-demo is a live possibility, not a hypothetical."""
+    return ToolResult(
+        {"found": False, "unavailable": True, "mc": mc_number},
+        "cached", 0,
+        f"SAFER unreachable ({why}) — federal check NOT made")
 
 
 @tool("safer.lookup", scope="fmcsa.read")
 async def lookup(mc_number: str) -> ToolResult:
     """Pull the federal record of an MC number. Live and keyless."""
     docket = _docket(mc_number)
-    async with httpx.AsyncClient(timeout=20, follow_redirects=True) as cx:
-        li = await _get(cx, LI, {"docket_number": docket})
-        if not li:
-            return ToolResult({"found": False, "mc": mc_number, "docket": docket},
-                              "live", 0,
-                              f"{mc_number} — no federal record under {docket}")
-        rec = li[0]
-        dot = str(rec.get("dot_number") or "").lstrip("0")
-        census: dict = {}
-        if dot:
-            rows = await _get(cx, CENSUS, {"dot_number": dot})
-            census = rows[0] if rows else {}
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as cx:
+            li = await _get(cx, LI, {"docket_number": docket})
+            if not li:
+                return ToolResult({"found": False, "mc": mc_number, "docket": docket},
+                                  "live", 0,
+                                  f"{mc_number} — no federal record under {docket}")
+            rec = li[0]
+            dot = str(rec.get("dot_number") or "").lstrip("0")
+            census: dict = {}
+            if dot:
+                rows = await _get(cx, CENSUS, {"dot_number": dot})
+                census = rows[0] if rows else {}
+    except SaferUnreachable as e:
+        return _unreachable(mc_number, str(e))
 
     addr = " ".join(
         str(rec.get(k) or "").strip()
@@ -118,6 +140,8 @@ async def crosscheck(
     """
     fed = await lookup(mc_number)
     rec = fed.value
+    if rec.get("unavailable"):
+        return _unreachable(mc_number, "lookup failed")
     if not rec.get("found"):
         return ToolResult({"verdict": "UNKNOWN", "risk": 50, "findings": [
                 {"field": "registry", "ok": False,

@@ -3,6 +3,12 @@ simulated (a real fleet would wire Motive/Samsara here); the HOS math itself
 is real FMCSA logic (11h driving cap in a 14h window, 10h reset) and the
 geofence math is real haversine against the stop's coordinates — the phone's
 GPS fix is what turns a detention claim from a story into evidence."""
+# These read and write our own Memory Bank, not a third party. Labelling
+# them "live" put them in the trace beside a genuine federal retrieval, so a
+# judge asking "which of these is real?" was being misled by our own
+# honesty feature. Our records are `sandbox`; `live` is reserved for a call
+# that actually left this machine.
+
 from __future__ import annotations
 
 import math
@@ -31,7 +37,7 @@ async def hos_check(drive_hours: float, hos_left_h: float) -> ToolResult:
                else "needs 10h reset" if with_reset else "illegal to run")
     value = {"same_day": same_day, "with_reset": with_reset, "verdict": verdict,
              "drive_hours": round(drive_hours, 1)}
-    return ToolResult(value, "live", 0,
+    return ToolResult(value, "sandbox", 0,
                       f"{drive_hours:.1f}h drive vs {hos_left_h:.1f}h available → {verdict}")
 
 
@@ -55,4 +61,4 @@ async def geofence_check(lat: float, lng: float, stop_lat: float, stop_lng: floa
     detail = (f"phone GPS {d:.2f} mi from {stop} — inside the {radius_mi:g} mi geofence"
               if inside else
               f"phone GPS {d:.1f} mi from {stop} — OUTSIDE the {radius_mi:g} mi geofence")
-    return ToolResult(value, "live", 0, detail)
+    return ToolResult(value, "sandbox", 0, detail)

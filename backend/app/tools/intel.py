@@ -3,6 +3,12 @@ BigQuery role), the broker graph (collisions + payment behavior), a reverse
 index from a phone/ACH/domain back to whoever registered it, and episodic
 memory — the specific things that happened to this carrier, which is what an
 agent should be able to cite instead of a score."""
+# These read and write our own Memory Bank, not a third party. Labelling
+# them "live" put them in the trace beside a genuine federal retrieval, so a
+# judge asking "which of these is real?" was being misled by our own
+# honesty feature. Our records are `sandbox`; `live` is reserved for a call
+# that actually left this machine.
+
 from __future__ import annotations
 
 from ..platform.gateway import ToolResult, tool
@@ -27,7 +33,7 @@ async def graph_query(mc_number: str) -> ToolResult:
     col = await bank.broker_collisions(mc_number)
     value = {"record": b, "collisions": col}
     if b is None:
-        return ToolResult(value, "live", 0, f"{mc_number}: no record in graph")
+        return ToolResult(value, "sandbox", 0, f"{mc_number}: no record in graph")
     bits = []
     if col["phone"]:
         bits.append(f"phone {b['phone']} shared with {', '.join(x['name'] for x in col['phone'])}")
@@ -39,7 +45,7 @@ async def graph_query(mc_number: str) -> ToolResult:
         bits.append(f"{b['prior_loads']} prior loads · avg pay {b['avg_pay_days']}d")
     if not bits:
         bits.append("no collisions, no history")
-    return ToolResult(value, "live", 0, f"{mc_number}: " + " · ".join(bits))
+    return ToolResult(value, "sandbox", 0, f"{mc_number}: " + " · ".join(bits))
 
 
 @tool("graph.who_owns", scope="graph.read")
@@ -55,10 +61,10 @@ async def who_owns(phone: str | None = None, email: str | None = None,
                 or (email and b.get("email") == email):
             hits.append(b)
     if not hits:
-        return ToolResult({"owners": []}, "live", 0,
+        return ToolResult({"owners": []}, "sandbox", 0,
                           f"{phone or dom}: not registered to anyone in the graph")
     names = ", ".join(f"{h['name']} ({h['_key']})" for h in hits)
-    return ToolResult({"owners": hits}, "live", 0, f"{phone or dom} belongs to {names}")
+    return ToolResult({"owners": hits}, "sandbox", 0, f"{phone or dom} belongs to {names}")
 
 
 @tool("memory.recall", scope="memory.read")
@@ -74,10 +80,10 @@ async def memory_recall(mc_number: str | None = None, ach: str | None = None,
     out.sort(key=lambda m: m.get("days_ago", 999))
     out = out[:limit]
     if not out:
-        return ToolResult({"memories": []}, "live", 0,
+        return ToolResult({"memories": []}, "sandbox", 0,
                           f"{mc_number or ach or phone}: nothing remembered")
     detail = " · ".join(f"{m['kind']} {m['days_ago']}d ago" for m in out)
-    return ToolResult({"memories": out}, "live", 0,
+    return ToolResult({"memories": out}, "sandbox", 0,
                       f"{len(out)} memory hit(s): {detail}")
 
 
@@ -87,7 +93,7 @@ async def memory_write(key: str, kind: str, text: str, mc_number: str | None = N
     doc = {"kind": kind, "text": text, "mc": mc_number, "amount": amount,
            "ach": ach, "days_ago": 0}
     await bank.put("memories", key, doc)
-    return ToolResult(doc, "live", 0, f"remembered: {text[:80]}")
+    return ToolResult(doc, "sandbox", 0, f"remembered: {text[:80]}")
 
 
 @tool("graph.write", scope="graph.write")
@@ -99,4 +105,4 @@ async def graph_write(mc_number: str, patch: dict) -> ToolResult:
         await bank.put("brokers", mc_number, doc)
     updated = await bank.patch("brokers", mc_number, patch)
     changed = ", ".join(f"{k}={v}" for k, v in patch.items())
-    return ToolResult(updated, "live", 0, f"graph updated {mc_number}: {changed}")
+    return ToolResult(updated, "sandbox", 0, f"graph updated {mc_number}: {changed}")

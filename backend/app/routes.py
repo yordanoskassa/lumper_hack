@@ -113,19 +113,30 @@ async def desk():
                 run_id, mc, posting=posting, quiet=True, use_cache=True)
 
     def contact_key(m: dict) -> tuple:
+        # Postings carry the contact as `cph`/`cem`. Keying on `phone`/`email`
+        # collapsed every posting for an MC into one entry, so the hijacked
+        # posting inherited the honest one's verdict and the board showed the
+        # fraud as CLEAR. The contact IS the discriminator — get it right.
         p = m["posting"]
-        return (m["mc"], p.get("phone"), p.get("email"), p.get("contact"))
+        return (m["mc"], p.get("cph"), p.get("cem"))
 
     unique: dict[tuple, dict] = {}
     for m in board["all_rows"]:
         unique.setdefault(contact_key(m), m)
     keys = list(unique)
     results = await asyncio.gather(
-        *(screen_once(unique[k]["mc"], unique[k]["posting"]) for k in keys))
+        *(screen_once(unique[k]["mc"], unique[k]["posting"]) for k in keys),
+        return_exceptions=True)
     by_key = dict(zip(keys, results))
 
     for m in board["all_rows"]:
         g = by_key[contact_key(m)]
+        if isinstance(g, BaseException):
+            # One broker's screen failing must not blank the board. Say we could
+            # not check rather than implying the broker is clean.
+            m["ghost"] = {"verdict": "UNKNOWN", "score": 0, "failed": 0,
+                          "callback_mismatch": False, "error": str(g)[:120]}
+            continue
         m["ghost"] = {"verdict": g["verdict"], "score": g["score"], "failed": g["failed"],
                       "callback_mismatch": g["callback"].get("mismatch", False)}
     snap = await desk_snapshot(board, tenant_doc["truck"], tenant_doc, len(postings))

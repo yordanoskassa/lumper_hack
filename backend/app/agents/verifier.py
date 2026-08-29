@@ -320,7 +320,15 @@ class Verifier(Agent):
                               trace=None if quiet else "registry callback lookup — {detail}",
                               tone="ok")
         r = reg.value
-        reg_phone, reg_email, src = r.get("phone"), r.get("email"), "FMCSA registry"
+        # Name the source we actually read. Without a WebKey `fmcsa.contact`
+        # serves our own seeded record, and calling that "FMCSA registry" makes
+        # a federal claim we did not make — in the one line the whole fraud
+        # demo rests on.
+        # Phrased to read correctly in "posting says X · {src} says Y".
+        _SRC = {"sandbox-record": "our own record", "qcmobile": "FMCSA registry",
+                "live": "FMCSA registry"}
+        reg_phone, reg_email = r.get("phone"), r.get("email")
+        src = _SRC.get(r.get("source") or reg.backend, "our own record")
         if not reg_phone and (federal or {}).get("registered_phone"):
             # QCMobile is keyed and may have nothing for us; the Motor Carrier
             # Census phone of record is keyless. The cross-check does not need

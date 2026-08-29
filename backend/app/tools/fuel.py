@@ -29,8 +29,9 @@ async def diesel_price(padd: str) -> tuple[float, str, str, str]:
     """Returns (price, asof, backend, why) — `why` is empty on a live read."""
     padd = padd if padd in PADD_SERIES else "US"
     if padd in _live_cache:
+        # A cached answer from an earlier live read is still not a live read.
         price, asof = _live_cache[padd]
-        return price, asof, "live", ""
+        return price, asof, "cached", "from this session's earlier EIA read"
     why = "EIA_API_KEY not set"
     if settings().has_eia:
         params = {
