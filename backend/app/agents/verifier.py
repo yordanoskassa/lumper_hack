@@ -107,6 +107,11 @@ class Verifier(Agent):
         fed = ({"found": False, "bulk_skip": True} if quiet and synthetic
                else await self._safer(run_id, mc, broker, posting, quiet, silent, use_cache))
         frec = fed.get("record") or {}
+        # A judge can screen any real docket, not just a seeded one. When the
+        # broker is not in our memory bank, `name` is still the bare MC string —
+        # but SAFER just told us who they actually are, so lead with that.
+        if frec.get("legal_name") and name == mc:
+            name = frec["legal_name"]
 
         # QCMobile needs a WebKey; SAFER's Licensing & Insurance record is the
         # same federal authority grant and needs none, so it fills the gap
