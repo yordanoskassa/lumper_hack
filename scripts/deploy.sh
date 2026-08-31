@@ -20,8 +20,11 @@ fi
 
 echo "Deploying $SERVICE to $PROJECT / $REGION"
 
+# artifactregistry is required for --source builds and is easy to miss: the
+# failure it produces is a permission error, not a "service disabled" one.
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
-  aiplatform.googleapis.com --project "$PROJECT"
+  artifactregistry.googleapis.com aiplatform.googleapis.com \
+  --project "$PROJECT"
 
 # Secrets travel as env vars set at deploy time, never baked into the image.
 # MAIL_LIVE stays false: these agents draft and send on their own initiative.

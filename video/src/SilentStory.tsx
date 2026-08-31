@@ -115,6 +115,58 @@ const WordReveal = ({
   );
 };
 
+const SentenceFade = ({
+  text,
+  start = 0,
+  duration = 18,
+  fontSize = 72,
+  color,
+  align = "left",
+  lineHeight = 1.05,
+  fontWeight = 400,
+  letterSpacing = "-.052em",
+}: {
+  text: string;
+  start?: number;
+  duration?: number;
+  fontSize?: number;
+  color?: string;
+  align?: "left" | "center";
+  lineHeight?: number;
+  fontWeight?: number;
+  letterSpacing?: string;
+}) => {
+  const frame = useCurrentFrame();
+  return (
+    <div
+      style={{
+        fontSize,
+        fontWeight,
+        letterSpacing,
+        lineHeight,
+        color,
+        textAlign: align,
+        opacity: interpolate(frame, [start, start + duration], [0, 1], {
+          ...clamp,
+          easing: ease,
+        }),
+        filter: `blur(${interpolate(frame, [start, start + duration], [6, 0], {
+          ...clamp,
+          easing: ease,
+        })}px)`,
+        translate: `0 ${interpolate(
+          frame,
+          [start, start + duration],
+          [14, 0],
+          { ...clamp, easing: ease },
+        )}px`,
+      }}
+    >
+      {text}
+    </div>
+  );
+};
+
 const SceneFade = ({
   children,
   duration,
@@ -341,7 +393,7 @@ function ColdOpen() {
       </div>
       <div style={{ position: "absolute", left: 260, right: 260, top: 760 }}>
         <WordReveal
-          text="Victor drives the truck. He also runs the business."
+          text="Victor drives the truck. He also runs everything behind it."
           start={110}
           step={11}
           fontSize={56}
@@ -388,12 +440,11 @@ function Pressure() {
           THIS IS VICTOR
         </div>
         <div style={{ marginTop: 20 }}>
-          <WordReveal
-            text="He owes $6,520 every month. Before diesel."
+          <SentenceFade
+            text="To stay in business, Victor needs $6,520 every month. Before diesel."
             start={8}
-            step={12}
-            fontSize={83}
-            motion="rise"
+            duration={20}
+            fontSize={75}
           />
         </div>
         <div
@@ -536,12 +587,11 @@ function BackOffice() {
             YEAR ONE
           </div>
           <div style={{ marginTop: 18 }}>
-            <WordReveal
-              text="His back office cost $2,840 a month."
+            <SentenceFade
+              text="On top of that, his back office costs another $2,840 a month."
               start={8}
-              step={11}
-              fontSize={72}
-              motion="drift"
+              duration={20}
+              fontSize={64}
             />
           </div>
           <div
@@ -646,12 +696,11 @@ function BackOffice() {
         </div>
       </div>
       <div style={{ position: "absolute", left: 115, right: 115, bottom: 88 }}>
-        <WordReveal
-          text="He cancelled it in month 9. Then he did the work himself."
+        <SentenceFade
+          text="By month 9, he could not afford it. So he did the work himself."
           start={214}
-          step={6}
-          fontSize={47}
-          motion="settle"
+          duration={18}
+          fontSize={44}
           align="center"
         />
       </div>
@@ -714,12 +763,11 @@ function Fraud() {
           }}
         >
           <div>
-            <WordReveal
-              text="The MC number was real. The broker was fake."
+            <SentenceFade
+              text="Now Victor was checking brokers alone. One looked real. It was a scam."
               start={4}
-              step={8}
-              fontSize={70}
-              motion="focus"
+              duration={20}
+              fontSize={60}
             />
             <div
               style={{
@@ -835,103 +883,121 @@ function Fraud() {
         </div>
       )}
       {phase === 1 && (
-        <div
-          style={{
-            position: "absolute",
-            inset: "220px 150px 145px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 45,
-          }}
-        >
-          {[
-            ["DAY 0", "INVOICED"],
-            ["DAY 30", "NOTHING"],
-            ["DAY 60", "UNPAID"],
-          ].map(([d, s], i) => (
-            <React.Fragment key={d}>
-              <div
-                style={{
-                  width: 380,
-                  height: 300,
-                  borderRadius: 19,
-                  border: `1px solid ${i === 2 ? "#FECACA" : C.border}`,
-                  background: i === 2 ? C.redTint : C.white,
-                  display: "grid",
-                  placeItems: "center",
-                  textAlign: "center",
-                  opacity: interpolate(
-                    phaseFrame,
-                    [i * 24, i * 24 + 18],
-                    [0, 1],
-                    clamp,
-                  ),
-                  boxShadow:
-                    i === 2
-                      ? `0 0 ${interpolate(phaseFrame, [48, 110], [0, 45], clamp)}px rgba(220,38,38,.16)`
-                      : "0 16px 45px rgba(10,10,10,.05)",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontFamily: GEIST_MONO,
-                      color: i === 2 ? C.red : C.muted,
-                      fontSize: 25,
-                    }}
-                  >
-                    {d}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 50,
-                      fontWeight: 400,
-                      color: i === 2 ? C.red : C.ink,
-                      marginTop: 22,
-                    }}
-                  >
-                    {s}
-                  </div>
-                  {i === 2 && (
-                    <div
-                      style={{
-                        fontFamily: GEIST_MONO,
-                        color: C.red,
-                        fontSize: 21,
-                        marginTop: 18,
-                        opacity: interpolate(
-                          phaseFrame,
-                          [68, 92],
-                          [0, 1],
-                          clamp,
-                        ),
-                      }}
-                    >
-                      PHONE DISCONNECTED
-                    </div>
-                  )}
-                </div>
-              </div>
-              {i < 2 && (
+        <>
+          <div
+            style={{
+              position: "absolute",
+              left: 160,
+              right: 160,
+              top: 135,
+            }}
+          >
+            <SentenceFade
+              text="Then 60 days passed. Victor still had not been paid."
+              start={sec(6) + 3}
+              duration={18}
+              fontSize={49}
+              align="center"
+            />
+          </div>
+          <div
+            style={{
+              position: "absolute",
+              inset: "300px 150px 105px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 45,
+            }}
+          >
+            {[
+              ["DAY 0", "INVOICED"],
+              ["DAY 30", "NOTHING"],
+              ["DAY 60", "UNPAID"],
+            ].map(([d, s], i) => (
+              <React.Fragment key={d}>
                 <div
                   style={{
-                    fontSize: 48,
-                    color: C.border,
+                    width: 380,
+                    height: 300,
+                    borderRadius: 19,
+                    border: `1px solid ${i === 2 ? "#FECACA" : C.border}`,
+                    background: i === 2 ? C.redTint : C.white,
+                    display: "grid",
+                    placeItems: "center",
+                    textAlign: "center",
                     opacity: interpolate(
                       phaseFrame,
-                      [i * 24 + 15, i * 24 + 32],
+                      [i * 24, i * 24 + 18],
                       [0, 1],
                       clamp,
                     ),
+                    boxShadow:
+                      i === 2
+                        ? `0 0 ${interpolate(phaseFrame, [48, 110], [0, 45], clamp)}px rgba(220,38,38,.16)`
+                        : "0 16px 45px rgba(10,10,10,.05)",
                   }}
                 >
-                  →
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: GEIST_MONO,
+                        color: i === 2 ? C.red : C.muted,
+                        fontSize: 25,
+                      }}
+                    >
+                      {d}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 50,
+                        fontWeight: 400,
+                        color: i === 2 ? C.red : C.ink,
+                        marginTop: 22,
+                      }}
+                    >
+                      {s}
+                    </div>
+                    {i === 2 && (
+                      <div
+                        style={{
+                          fontFamily: GEIST_MONO,
+                          color: C.red,
+                          fontSize: 21,
+                          marginTop: 18,
+                          opacity: interpolate(
+                            phaseFrame,
+                            [68, 92],
+                            [0, 1],
+                            clamp,
+                          ),
+                        }}
+                      >
+                        PHONE DISCONNECTED
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+                {i < 2 && (
+                  <div
+                    style={{
+                      fontSize: 48,
+                      color: C.border,
+                      opacity: interpolate(
+                        phaseFrame,
+                        [i * 24 + 15, i * 24 + 32],
+                        [0, 1],
+                        clamp,
+                      ),
+                    }}
+                  >
+                    →
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </>
       )}
       {phase === 2 && (
         <div
@@ -969,12 +1035,11 @@ function Fraud() {
               −$4,000
             </div>
             <div style={{ marginTop: 34 }}>
-              <WordReveal
-                text="Victor hauled two loads. The fake broker kept $4,000."
+              <SentenceFade
+                text="By day 60, the fake broker had kept $4,000 from Victor."
                 start={sec(12) + 38}
-                step={6}
+                duration={18}
                 fontSize={35}
-                motion="rise"
                 align="center"
               />
             </div>
@@ -997,7 +1062,7 @@ function Fraud() {
         >
           <div>
             <WordReveal
-              text="The phone number exposed the double-brokering scam."
+              text="Only then did the phone number expose the scam."
               start={sec(16) + 3}
               step={7}
               fontSize={62}
@@ -1116,10 +1181,10 @@ function Detention() {
         >
           <div style={{ maxWidth: 900 }}>
             <WordReveal
-              text="The warehouse kept Victor waiting."
+              text="Then, in May, a warehouse kept Victor waiting."
               start={4}
-              step={12}
-              fontSize={72}
+              step={10}
+              fontSize={66}
               motion="rise"
             />
             <div
@@ -1131,7 +1196,7 @@ function Detention() {
                 opacity: interpolate(frame, [75, 104], [0, 1], clamp),
               }}
             >
-              He could not leave. He could not take another paying job.
+              He could not leave. So he missed another paying job.
             </div>
           </div>
           <div
@@ -1181,12 +1246,11 @@ function Detention() {
             opacity: phaseOpacity,
           }}
         >
-          <WordReveal
-            text="After 2 hours, Victor was owed money for the delay."
+          <SentenceFade
+            text="After 2 hours, Victor was owed money for every extra minute."
             start={sec(5) + 3}
-            step={5}
-            fontSize={62}
-            motion="focus"
+            duration={18}
+            fontSize={58}
             align="center"
           />
           <div
@@ -1239,7 +1303,7 @@ function Detention() {
           </div>
           <div style={{ marginTop: 76 }}>
             <WordReveal
-              text="That payment is called detention."
+              text="In trucking, that payment is called detention."
               start={sec(5) + 76}
               step={7}
               fontSize={48}
@@ -1258,12 +1322,11 @@ function Detention() {
             opacity: phaseOpacity,
           }}
         >
-          <WordReveal
-            text="They owed Victor $292. They paid him $0."
+          <SentenceFade
+            text="Victor was owed $292. But without proof, he received $0."
             start={sec(10) + 3}
-            step={6}
-            fontSize={66}
-            motion="drift"
+            duration={18}
+            fontSize={60}
             align="center"
           />
           <div
@@ -1341,7 +1404,7 @@ function Detention() {
               ),
             }}
           >
-            Why? He could not prove when the wait started.
+            No start time meant no payment.
           </div>
         </div>
       )}
@@ -1375,14 +1438,23 @@ function Impact() {
             −$4,292
           </div>
           <div style={{ marginTop: 35 }}>
-            <WordReveal
-              text="His mortgage was still due."
+            <SentenceFade
+              text="Together, those two losses cost Victor $4,292."
               start={72}
-              step={16}
-              fontSize={67}
-              motion="settle"
+              duration={20}
+              fontSize={56}
               align="center"
             />
+          </div>
+          <div
+            style={{
+              fontSize: 35,
+              color: "#C2C2BE",
+              marginTop: 26,
+              opacity: interpolate(frame, [138, 168], [0, 1], clamp),
+            }}
+          >
+            And his mortgage was still due.
           </div>
           <div
             style={{
@@ -1408,10 +1480,10 @@ function FourAgents() {
     <Shell>
       <div style={{ position: "absolute", left: 105, right: 105, top: 82 }}>
         <WordReveal
-          text="Four agents now handle Victor's back office."
+          text="That is why Backstop gives Victor four agents."
           start={2}
-          step={10}
-          fontSize={64}
+          step={9}
+          fontSize={60}
           motion="focus"
           align="center"
         />
@@ -1735,12 +1807,11 @@ function FinderDemo({ local }: { local: number }) {
         01 · FINDER
       </div>
       <div style={{ position: "absolute", left: 105, top: 118 }}>
-        <WordReveal
-          text="Find the load that pays."
+        <SentenceFade
+          text="First, Finder finds the load that pays."
           start={4}
-          step={7}
-          fontSize={68}
-          motion="rise"
+          duration={18}
+          fontSize={62}
         />
       </div>
       <SourceProof
@@ -1899,13 +1970,15 @@ function VerifierDemo({ local }: { local: number }) {
       >
         02 · VERIFIER
       </div>
-      <div style={{ position: "absolute", left: 105, top: 118 }}>
-        <WordReveal
-          text="Check the person behind the MC."
+      <div
+        style={{ position: "absolute", left: 105, top: 118, width: 1120 }}
+      >
+        <SentenceFade
+          text="Then, Verifier checks who is really behind the broker."
           start={154}
-          step={6}
-          fontSize={68}
-          motion="focus"
+          duration={18}
+          fontSize={54}
+          lineHeight={1.08}
         />
       </div>
       <SourceProof
@@ -2042,12 +2115,11 @@ function CloserDemo({ local }: { local: number }) {
         03 · CLOSER
       </div>
       <div style={{ position: "absolute", left: 105, top: 112, width: 720 }}>
-        <WordReveal
-          text="Keep the rate moving."
+        <SentenceFade
+          text="Next, Closer negotiates the rate and follows up."
           start={304}
-          step={7}
-          fontSize={68}
-          motion="drift"
+          duration={18}
+          fontSize={58}
         />
       </div>
       <div style={{ position: "absolute", left: 105, top: 330, width: 640 }}>
@@ -2171,12 +2243,11 @@ function PaydayDemo({ local }: { local: number }) {
         04 · PAYDAY
       </div>
       <div style={{ position: "absolute", left: 105, top: 118 }}>
-        <WordReveal
-          text="Backstop proves how long he waited."
+        <SentenceFade
+          text="Finally, Payday proves how long Victor waited."
           start={454}
-          step={7}
-          fontSize={68}
-          motion="settle"
+          duration={18}
+          fontSize={61}
         />
       </div>
       <div style={{ position: "absolute", left: 110, right: 110, top: 360 }}>
@@ -2368,12 +2439,11 @@ function Close() {
             Lumper Backstop
           </div>
           <div style={{ marginTop: 22, width: 1120 }}>
-            <WordReveal
-              text="Four agents run the back office for one-truck carriers."
+            <SentenceFade
+              text="Together, four agents run the back office Victor could no longer afford."
               start={62}
-              step={9}
-              fontSize={38}
-              motion="rise"
+              duration={20}
+              fontSize={36}
               align="center"
             />
           </div>

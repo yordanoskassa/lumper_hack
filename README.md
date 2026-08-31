@@ -12,7 +12,22 @@ small carriers lose real money to fraud and to unpaid detention because nobody
 has time to chase it. Backstop is that chase, automated.
 
 **Built with Google Gemini** · `gemini-3.5-flash` via the Google GenAI SDK ·
-deployed on Google Cloud Run.
+running on Google Cloud Run.
+
+**Live API:** https://lumper-backstop-1094415841088.us-central1.run.app/api/health
+
+Screen any real broker against the live federal register, straight from the
+deployed service — no key, no login:
+
+```bash
+curl -s -X POST https://lumper-backstop-1094415841088.us-central1.run.app/api/screen \
+  -H 'content-type: application/json' -d '{"mc":"MC-133655"}'
+# SCHNEIDER NATIONAL CARRIERS, INC. · CLEAR · USDOT 264184
+
+curl -s -X POST https://lumper-backstop-1094415841088.us-central1.run.app/api/screen \
+  -H 'content-type: application/json' -d '{"mc":"MC-172829"}'
+# BONES TRANSPORTATION, INC. · REFUSE · no broker authority, no surety bond
+```
 
 ---
 
@@ -236,6 +251,37 @@ gcloud config set project YOUR_PROJECT_ID
 
 export GEMINI_API_KEY=...          # and optionally GOOGLE_MAPS_API_KEY, MONGO_URI
 bash scripts/deploy.sh
+```
+
+On a brand-new project the default compute service account has no rights over
+its own build bucket, and `--source` deploys fail with a permission error rather
+than a useful one. Grant it once:
+
+```bash
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
+for role in cloudbuild.builds.builder storage.objectViewer \
+            artifactregistry.writer logging.logWriter; do
+  gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/$role"
+done
+```
+
+If your account sits under a Google Cloud organization, domain-restricted
+sharing will also refuse `allUsers`, so the service deploys but stays private.
+Allow it for this project only:
+
+```bash
+gcloud services enable orgpolicy.googleapis.com --project "$PROJECT"
+cat > /tmp/drs.yaml <<YAML
+name: projects/$PROJECT/policies/iam.allowedPolicyMemberDomains
+spec:
+  rules:
+  - allowAll: true
+YAML
+gcloud org-policies set-policy /tmp/drs.yaml --project "$PROJECT"
+gcloud run services add-iam-policy-binding SERVICE --region REGION \
+  --member=allUsers --role=roles/run.invoker
 ```
 
 The script enables Cloud Run, Cloud Build and Vertex AI, builds

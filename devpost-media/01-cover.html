@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumper Backstop — Devpost Cover</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1600px;
+        height: 900px;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      body {
+        font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+        background: #171719;
+        color: #fafafa;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .canvas {
+        position: relative;
+        display: grid;
+        width: 100%;
+        height: 100%;
+        place-items: center;
+        padding: 70px 88px 56px;
+      }
+
+      .canvas::before {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 50% 46%, rgba(249, 115, 22, 0.08), transparent 27%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 42%);
+        content: "";
+        pointer-events: none;
+      }
+
+      .hero {
+        position: relative;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        transform: translateY(-12px);
+      }
+
+      .brand-mark {
+        width: 126px;
+        height: 126px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 29px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+      }
+
+      h1 {
+        margin: 42px 0 0;
+        font-size: 70px;
+        font-weight: 400;
+        letter-spacing: -0.045em;
+        line-height: 1;
+      }
+
+      .rule {
+        width: 48px;
+        height: 2px;
+        margin-top: 38px;
+        background: #f97316;
+        border-radius: 999px;
+      }
+
+      .platforms {
+        display: flex;
+        align-items: center;
+        margin-top: 36px;
+        color: #c7c7c4;
+      }
+
+      .platform {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 34px;
+      }
+
+      .platform-label {
+        font-size: 18px;
+        font-weight: 400;
+        letter-spacing: -0.015em;
+        white-space: nowrap;
+      }
+
+      .gemini-mark {
+        width: 29px;
+        height: 29px;
+        object-fit: contain;
+      }
+
+      .divider {
+        width: 1px;
+        height: 28px;
+        margin: 0 30px;
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      .cloud-wordmark-wrap {
+        display: flex;
+        align-items: center;
+        height: 34px;
+        padding: 5px 9px;
+        background: #ffffff;
+        border-radius: 5px;
+      }
+
+      .cloud-wordmark {
+        width: 148px;
+        height: auto;
+        display: block;
+      }
+
+      footer {
+        position: absolute;
+        right: 88px;
+        bottom: 54px;
+        left: 88px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #777774;
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="canvas" aria-label="Lumper Backstop Devpost cover image">
+      <section class="hero">
+        <img
+          class="brand-mark"
+          src="../frontend/public/icon.svg"
+          alt="Lumper Backstop logo"
+        />
+
+        <h1>Lumper Backstop</h1>
+        <div class="rule"></div>
+
+        <div class="platforms" aria-label="Technology partners">
+          <div class="platform">
+            <img
+              class="gemini-mark"
+              src="../video/public/integrations/gemini-spark.png"
+              alt="Gemini"
+            />
+            <span class="platform-label">Powered by Gemini</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="platform">
+            <div class="cloud-wordmark-wrap">
+              <img
+                class="cloud-wordmark"
+                src="./assets/google-cloud-logo-fullcolor.svg"
+                alt="Google Cloud"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>Brought to you by MAZE BUILDERS LLC.</footer>
+    </main>
+  </body>
+</html>
