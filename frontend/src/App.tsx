@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  FileText, MessageSquare, Smartphone, Truck, Users, X, type LucideIcon,
+  DollarSign, MessageSquare, Settings2, Smartphone, Truck, Users, X, type LucideIcon,
 } from "lucide-react";
 import { api, type Desk as DeskData } from "@/api";
 import { useStream } from "@/useStream";
@@ -11,15 +11,19 @@ import { Desk } from "@/views/Desk";
 import { Driver } from "@/views/Driver";
 import { DriverApp } from "@/driver/DriverApp";
 import { Fleet } from "@/views/Fleet";
+import { Money } from "@/views/Money";
 import { Registry } from "@/views/Registry";
 
-type View = "driver" | "desk" | "fleet" | "registry";
+type View = "driver" | "desk" | "fleet" | "money" | "registry";
 
+/** The product's four surfaces. The agent registry is not one of them: a
+ *  directory of our own software is something a judge wants to audit, not
+ *  something a dispatcher opens on a Tuesday. It lives under System. */
 const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
-  { key: "driver", label: "Driver app", short: "Drive", Icon: Smartphone },
-  { key: "desk", label: "Live desk", short: "Desk", Icon: Truck },
+  { key: "driver", label: "Driver", short: "Drive", Icon: Smartphone },
+  { key: "desk", label: "Loads", short: "Loads", Icon: Truck },
   { key: "fleet", label: "Fleet", short: "Fleet", Icon: Users },
-  { key: "registry", label: "Registry", short: "Agents", Icon: FileText },
+  { key: "money", label: "Money", short: "Money", Icon: DollarSign },
 ];
 
 const ROSTER = ["Dispatch", "Finder", "Verifier", "Closer", "Payday"];
@@ -80,6 +84,7 @@ export default function App() {
       {view === "driver" && <Driver trace={trace} connected={connected} />}
       {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
       {view === "fleet" && <Fleet trace={trace} />}
+      {view === "money" && <Money />}
       {view === "registry" && <Registry />}
     </>
   );
@@ -170,7 +175,17 @@ export default function App() {
           </>
         )}
 
-        <div className="mt-auto border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
+        <button
+          onClick={() => setView("registry")}
+          className={cn(
+            "mt-auto flex items-center gap-2 border-t border-border px-4 py-2.5 text-left text-[11px] transition-colors",
+            view === "registry" ? "text-primary" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Settings2 className="size-3.5 shrink-0" />
+          System · agents, scopes, integrations
+        </button>
+        <div className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
           {tenant?.tenant?.name ?? "K&M Hauling"} · {tenant?.tenant?.trucks ?? 3} trucks
         </div>
       </aside>
@@ -182,17 +197,18 @@ export default function App() {
 
           {/* Dispatch: a docked panel on desktop, a full sheet on a phone. */}
           {chatOpen ? (
-            <div className="absolute inset-0 z-60 flex flex-col bg-background p-3 lg:inset-auto lg:right-5 lg:bottom-5 lg:h-[70vh] lg:w-[380px] lg:rounded-xl lg:p-0 lg:shadow-2xl">
+            <div className="absolute inset-0 z-60 flex flex-col bg-background lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[min(560px,42vw)] lg:border-l lg:border-border lg:shadow-2xl">
               <Button
                 variant="ghost"
                 size="tap"
                 onClick={() => setChatOpen(false)}
-                className="self-end lg:absolute lg:top-1 lg:right-1 lg:z-2"
+                className="absolute top-2 right-2 z-10"
               >
                 <X className="size-4" /> <span className="lg:hidden">Close</span>
               </Button>
               <Chat
                 chatFeed={chatFeed}
+                trace={trace}
                 local={chatLog}
                 setLocal={setChatLog}
                 onRoute={(route) => {
