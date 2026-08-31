@@ -44,23 +44,36 @@ function loadMaps(): Promise<void> {
 /** The cab palette applied to Google's tiles: the map has to sit *under* the
  *  UI, so roads stay legible while everything else drops back. */
 const DARK: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry", stylers: [{ color: "#242428" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a1d" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#9a9a98" }] },
-  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#4a4a55" }] },
-  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#b4b4b1" }] },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-  { featureType: "transit", stylers: [{ visibility: "off" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#35353d" }] },
-  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#3f3f49" }] },
-  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#57575f" }] },
-  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#d7d7d4" }] },
-  { featureType: "road", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0c0c0f" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3f3f49" }] },
-  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#212126" }] },
-];
+  // Dark, but not grey-on-grey. Water goes blue, parks and forest go green,
+  // highways go warm — the map reads as a country you could drive across
+  // instead of a wireframe, while still sitting under the UI.
+  { elementType: "geometry", stylers: [{ color: "#20242b" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#14171c" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#a9b0ba" }] },
 
+  { featureType: "administrative", elementType: "geometry", stylers: [{ color: "#55606f" }] },
+  { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#6b7688" }] },
+  { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#4d5766" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d6dae0" }] },
+
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }, { color: "#1e3a2f" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#232830" }] },
+  { featureType: "landscape.natural.terrain", elementType: "geometry", stylers: [{ color: "#27313a" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#333a45" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#3d4552" }] },
+  // freight moves on the interstates, so they are the one warm line on the map
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#7a5a34" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#9a6f3c" }] },
+  { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#8a6538" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f0c896" }] },
+  { featureType: "road", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#12283d" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#5b7fa3" }] },
+];
 const PIN_COLOR: Record<MapPin["kind"], string> = {
   you: "#F97316",
   clear: "#34D399",

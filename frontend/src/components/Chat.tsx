@@ -125,6 +125,15 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
 
   // The driver's own flow is Dispatch's to run, not a page they have to go and
   // find. When the run moves, the thread follows it with the matching card.
+  // A tap in the app is a request to the fleet. It lands in the thread as the
+  // driver's own words, so the conversation is the record of the whole run —
+  // not a parallel place where some of it happened.
+  const said = run.announce;
+  useEffect(() => {
+    if (!said) return;
+    setLocal((m) => (m.at(-1)?.text === said.text ? m : [...m, { role: "user", text: said.text }]));
+  }, [said?.at, setLocal]);
+
   const stage = run.screen;
   useEffect(() => {
     const want: Record<string, Msg["card"]> = {

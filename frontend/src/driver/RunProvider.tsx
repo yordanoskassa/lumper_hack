@@ -40,6 +40,7 @@ interface RunValue {
   picked: DriverLoad | null;
   verifying: DriverLoad | null;
   scan: ScanResult | null;
+  announce: { text: string; at: number } | null;
   gps: [number, number] | null;
   dockPos: [number, number] | null;
   det: DetentionState;
@@ -84,6 +85,11 @@ export function useRun(): RunValue {
  *  photo. */
 export function RunProvider({ children, trace }: { children: ReactNode; trace?: TraceEvent[] }) {
   const [screen, setScreen] = useState<Screen>("home");
+  // Buttons in the app are requests to the fleet, not local state changes. Each
+  // one is announced here so Dispatch narrates it in the thread — the agent is
+  // the system, not a second way to reach it.
+  const [announce, setAnnounce] = useState<{ text: string; at: number } | null>(null);
+  const say = (text: string) => setAnnounce({ text, at: Date.now() });
   const [board, setBoard] = useState<DriverBoard | null>(null);
   const [picked, setPicked] = useState<DriverLoad | null>(null);
   const [verifying, setVerifying] = useState<DriverLoad | null>(null);
@@ -121,6 +127,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
     dockPos ?? gps ?? (truck ? [truck.lat, truck.lng] : [41.525, -88.0834]);
 
   async function hunt() {
+    say("Find me a load");
     setErr(null);
     setScreen("hunting");
     try {
@@ -166,6 +173,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   /** Tapping a load runs the Verifier for real: SAFER retrieval, the callback
    *  cross-check and the memory graph. Nothing on this screen is pre-written. */
   async function openScan(l: DriverLoad) {
+    say(`Check ${l.broker} on ${l.origin} → ${l.dest}`);
     setVerifying(l);
     setScan(null);
     setScreen("verify");
@@ -184,6 +192,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   }
 
   async function arrive() {
+    say("I'm at the dock");
     if (!picked) return;
     setDet({ active: false });
     const at: [number, number] = [picked.dest_lat, picked.dest_lng];
@@ -197,6 +206,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   }
 
   function takePaperwork() {
+    say("I'm unloaded — take the paperwork");
     setScreen("pod");
   }
 
@@ -265,6 +275,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
 
   const value: RunValue = {
     screen, board, picked, verifying, scan, gps, dockPos, det, podImg, err, mapFailed, trace,
+    announce,
     truck, here, pins, routes, focus, onTrip, activeTab: tab,
     hunt, openScan, finishVerify, arrive, takePaperwork, setPodImg, sendPod, reset,
     setTab, setScreen, setMapFailed,
@@ -280,8 +291,12 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
 export function RunShell({ children, overlay }: { children: ReactNode; overlay?: ReactNode }) {
   const { screen, pins, routes, focus, gps, truck, mapFailed, setMapFailed, err, trace } = useRun();
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground lg:grid lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)]">
-      <div className="relative h-[38vh] max-h-95 min-h-60 shrink-0 lg:order-2 lg:h-full lg:max-h-none">
+    // Phone: map on top, content beneath. Desktop: the map IS the surface, full
+    // bleed, with the content floating over it as a panel. A solid content
+    // column beside a map means the map is decoration and the column is mostly
+    // empty — this way the map is the product and the words sit on it.
+    <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground">
+      <div className="relative h-[38vh] max-h-95 min-h-60 shrink-0 lg:absolute lg:inset-0 lg:h-full lg:max-h-none">
         {/* Real tiles when a key is present. The keyless map stays as the
             fallback so a dead network on stage degrades instead of failing. */}
         {hasMapsKey && !mapFailed ? (
@@ -305,7 +320,17 @@ export function RunShell({ children, overlay }: { children: ReactNode; overlay?:
         {trace && trace.length > 0 && <TracePeek trace={trace} />}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)] lg:order-1 lg:border-r lg:border-border lg:p-8 lg:pb-8">
+      {/* Where the truck is, over the map, on desktop. */}
+      <div className="pointer-events-none absolute top-6 left-6 z-10 hidden lg:block">
+        <Place gps={!!gps} city={truck?.city} big />
+      </div>
+
+      <div className={cn(
+        "min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)]",
+        // a floating panel, not a column: sized to its content, scrolls on its own
+        "lg:absolute lg:top-24 lg:bottom-6 lg:left-6 lg:z-10 lg:w-[min(420px,32vw)] lg:flex-none",
+        "lg:rounded-2xl lg:border lg:border-border lg:bg-background/85 lg:p-5 lg:pb-5 lg:backdrop-blur-xl lg:shadow-2xl",
+      )}>
         {err && (
           <div className="mb-4 rounded-lg border border-bad/35 bg-bad/12 px-4 py-3 text-[13px] text-bad">
             Can't reach the desk — {err}
