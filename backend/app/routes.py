@@ -262,6 +262,13 @@ async def document(body: dict = Body(...)):
     else:
         routed_as, to, kind = "Trip paperwork", tenant_doc.get("email"), "outbound"
 
+    # A driver who has just photographed a signed bill must never be told
+    # "nobody on file". If there is no broker and no carrier address, the
+    # operator's own inbox is the honest destination — the document still
+    # leaves the phone and is still on the record.
+    if not to:
+        from .config import settings
+        to = settings().demo_broker_email or None
     if not to:
         raise HTTPException(400, "nobody on file to route this to")
 

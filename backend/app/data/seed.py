@@ -45,7 +45,7 @@ from ..platform.memory import MemoryBank
 TENANT = {
     "name": "K&M Hauling", "trucks": 3, "email": "ops@kmhauling.example",
     "truck": {
-        "id": "12", "driver": "M. Alvarez", "city": "Joliet IL",
+        "id": "12", "driver": "M. Alvarez", "city": "Grand Rapids MI",
         "lat": 41.525, "lon": -88.083, "mpg": 6.4, "fixed_cpm": 0.62,
         "hos_left_h": 8.4, "empty_in_h": 2.07,
     },
@@ -53,7 +53,7 @@ TENANT = {
     # where, on what, and how much clock have they got" — not an org chart of
     # our own software.
     "fleet": [
-        {"id": "12", "driver": "M. Alvarez", "city": "Joliet IL",
+        {"id": "12", "driver": "M. Alvarez", "city": "Grand Rapids MI",
          "lat": 41.525, "lon": -88.083, "status": "empty",
          "hos_left_h": 8.4, "mpg": 6.4, "trailer": "Dry van", "load": None},
         {"id": "07", "driver": "R. Okonkwo", "city": "Indianapolis IN",
@@ -120,10 +120,10 @@ BROKERS: list[dict] = [
      "phone": "319-233-6113", "ach": "RT-073900465", "prior_loads": 14, "avg_pay_days": 22,
      "unpaid": 0, "email": "dispatch@warrentransport.example.com", "real_mc": True,
      "detention_claims": 2, "detention_denied": 0, "detention_unpaid": 0, "responds_in_h": 4},
-    {"_key": "MC-107012", "name": "North American Van Lines, Inc.", "domain": "navl.com",
+    {"_key": "MC-107012", "name": "North American Van Lines, Inc.", "domain": "northamericanvanlines.com",
      "domain_age_days": 10800, "authority_age_days": 24000, "insurance": True, "oos": False,
      "phone": "260-429-2511", "ach": "RT-074000010", "prior_loads": 6, "avg_pay_days": 26,
-     "unpaid": 0, "email": "dispatch@navl.example.com", "real_mc": True,
+     "unpaid": 0, "email": "dispatch@northamericanvanlines.example.com", "real_mc": True,
      "detention_claims": 1, "detention_denied": 0, "detention_unpaid": 0, "responds_in_h": 6},
     {"_key": "MC-109533", "name": "TForce Freight, Inc.", "domain": "tforcefreight.com",
      "domain_age_days": 9200, "authority_age_days": 23000, "insurance": True, "oos": False,
@@ -201,36 +201,41 @@ BOARD: list[dict] = [
     # the claimed MC, and that mismatch is the whole fraud tell.
     #
     # 1 — Chicago → Milwaukee · the honest short haul. Warren Transport.
-    {"id": "P-90412", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · 8 AM–2 PM", "note": "Verified dealer · Demo", "posted_min": 12, "src": "DAT",
+    {"id": "P-90412", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 148, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · 8 AM–2 PM", "note": "Verified dealer · Demo", "posted_min": 12, "src": "DAT",
      "cph": "319-233-6113", "cem": "dispatch@warrentransport.example.com"},
     # the bait twin: same lane, same real docket on the posting, 90% over the
     # board rate — and a contact phone that is not Warren's.
-    {"id": "P-90431", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 1180, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · flexible", "posted_min": 7, "src": "123LB",
+    {"id": "P-90431", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 148, "rate": 1180, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · flexible", "posted_min": 7, "src": "123LB",
      "cph": "312-555-0198", "cem": "dispatch@warren-transport.example.com"},
     # 2 — Madison → Indianapolis · A.N. Webber, honest. The contact phone on
     # this posting IS the number FMCSA has on file, and SAFER confirms it live.
-    {"id": "P-90440", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1080, "eq": "3-car wedge", "units": "3 operable vehicles", "pickup": "Demo day +2", "note": "Quick Pay eligible · Demo", "posted_min": 23, "src": "DAT",
+    {"id": "P-90440", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 150, "rate": 1080, "eq": "3-car wedge", "units": "3 operable vehicles", "pickup": "Demo day +2", "note": "Quick Pay eligible · Demo", "posted_min": 23, "src": "DAT",
      "cph": "800-435-0940", "cem": "dispatch@anwebber.example.com"},
     # the docket hijack — the money shot. Same real MC, 71% over the lane, and
     # the callback number belongs to the shell ring. Nothing on the posting
     # says so; only the federal copy does.
-    {"id": "P-90441", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1850, "eq": "3-car wedge", "units": "3 operable vehicles", "pickup": "Demo day +2 · urgent", "posted_min": 5, "src": "123LB",
+    {"id": "P-90441", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 150, "rate": 1850, "eq": "3-car wedge", "units": "3 operable vehicles", "pickup": "Demo day +2 · urgent", "posted_min": 5, "src": "123LB",
      "cph": "469-555-0177", "cem": "ops@apexfreightsol.example.net"},
     # 3 — Rockford → Nashville · North American Van Lines, honest.
-    {"id": "P-90419", "mc": "MC-107012", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 88, "rate": 1350, "eq": "Hotshot compatible", "units": "1 operable SUV", "pickup": "Demo day +3 · appointment", "note": "Direct · Demo", "posted_min": 6, "src": "123LB",
-     "cph": "260-429-2511", "cem": "dispatch@navl.example.com"},
+    {"id": "P-90419", "mc": "MC-107012", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 150, "rate": 1350, "eq": "Hotshot compatible", "units": "1 operable SUV", "pickup": "Demo day +3 · appointment", "note": "Direct · Demo", "posted_min": 6, "src": "123LB",
+     "cph": "260-429-2511", "cem": "dispatch@northamericanvanlines.example.com"},
     # Redline's ring, on the number the memory graph already knows.
-    {"id": "P-90418", "mc": "MC-1590044", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 88, "rate": 2100, "eq": "Hotshot compatible", "units": "1 operable SUV", "pickup": "Demo day +3 · today", "posted_min": 4, "src": "Truckstop",
+    {"id": "P-90418", "mc": "MC-1590044", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 150, "rate": 2100, "eq": "Hotshot compatible", "units": "1 operable SUV", "pickup": "Demo day +3 · today", "posted_min": 4, "src": "Truckstop",
      "cph": "469-555-0177", "cem": "billing@redline-brokerage.example.co"},
     # 4 — Green Bay → Des Moines · carrier bid, no posted rate. TForce.
-    {"id": "P-90428", "mc": "MC-109533", "o": "Green Bay WI", "d": "Des Moines IA", "mi": 390, "dh": 148, "rate": 1150, "bid_only": True, "eq": "Winch required", "units": "1 inoperable pickup", "pickup": "Demo day +4–5", "note": "Equipment check · Demo", "posted_min": 16, "src": "DAT",
+    {"id": "P-90428", "mc": "MC-109533", "o": "Green Bay WI", "d": "Des Moines IA", "mi": 390, "dh": 150, "rate": 1150, "bid_only": True, "eq": "Winch required", "units": "1 inoperable pickup", "pickup": "Demo day +4–5", "note": "Equipment check · Demo", "posted_min": 16, "src": "DAT",
+     "cph": "800-333-7400", "cem": "dispatch@tforcefreight.example.com"},
+    # 0 — the load in the driver's own city. TForce Freight, MC-109533, a real
+    # bonded broker: look the docket up on safer.fmcsa.dot.gov and the record
+    # matches the one the app shows.
+    {"id": "P-90450", "mc": "MC-109533", "o": "Grand Rapids MI", "d": "Chicago IL", "mi": 178, "dh": 0, "rate": 980, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · 7 AM–noon", "note": "Verified dealer · Demo", "posted_min": 9, "src": "DAT",
      "cph": "800-333-7400", "cem": "dispatch@tforcefreight.example.com"},
     # --- the rest of the board: what Finder throws out ------------------
     {"id": "P-90421", "mc": "MC-1710084", "o": "Chicago IL", "d": "Dallas TX", "mi": 967, "dh": 44, "rate": 3950, "eq": "7-car stinger", "units": "7 operable vehicles", "pickup": "Demo day +2", "posted_min": 3, "src": "123LB",
      "cph": "972-555-0104", "cem": "dispatch@sunbeltfp.example.net"},
     {"id": "P-90402", "mc": "MC-500035", "o": "Chicago IL", "d": "Cincinnati OH", "mi": 298, "dh": 41, "rate": 640, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +2", "posted_min": 38, "src": "DAT",
      "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
-    {"id": "P-90412b", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 14, "src": "Truckstop", "dup_of": "P-90412",
+    {"id": "P-90412b", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 148, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 14, "src": "Truckstop", "dup_of": "P-90412",
      "cph": "319-233-6113", "cem": "dispatch@warrentransport.example.com"},
     {"id": "P-90396", "mc": "MC-770008", "o": "Rockford IL", "d": "Pittsburgh PA", "mi": 461, "dh": 88, "rate": 900, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 87, "src": "DAT",
      "cph": "717-555-0193", "cem": "ops@keystoneload.example.com"},
@@ -240,7 +245,7 @@ BOARD: list[dict] = [
 
 # 90-day average all-in linehaul $ per loaded mile ("BigQuery lane history").
 LANES: dict[str, float] = {
-    "Chicago IL→Milwaukee WI": 6.40, "Madison WI→Indianapolis IN": 3.21,
+    "Grand Rapids MI→Chicago IL": 3.40, "Chicago IL→Milwaukee WI": 6.40, "Madison WI→Indianapolis IN": 3.21,
     "Rockford IL→Nashville TN": 2.31, "Green Bay WI→Des Moines IA": 2.86,
     "Chicago IL→Cincinnati OH": 2.12, "Chicago IL→Dallas TX": 4.05,
     "Rockford IL→Pittsburgh PA": 2.02, "Chicago IL→Toledo OH": 2.24,
