@@ -8,6 +8,16 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # A browser Maps key is public by design: the Maps JavaScript API runs in the
+  # page, so the key ships in the bundle for every site that uses it. There is
+  # no way to hide it and nothing is gained by trying. What actually protects it
+  # is an HTTP-referrer restriction on the key itself, set in Google Cloud
+  # Console, so only this domain may spend against it.
+  #
+  # Netlify's scanner cannot tell a publishable key from a real secret, so it is
+  # told about this one by name. Nothing else is exempted — a genuine server
+  # secret appearing in the bundle should still fail the build.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_GOOGLE_MAPS_API_KEY"
 
 # The service worker must be revalidated on every load or an old shell can
 # outlive a deploy.
