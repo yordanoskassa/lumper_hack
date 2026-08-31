@@ -280,9 +280,10 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
               entirely; on desktop they sit side by side. */}
           <div className={cn("relative min-h-0 flex-1 overflow-hidden",
             view === "dispatch" && "hidden lg:block")}>
-            {/* On desktop the agent widens rather than taking the screen, so the
-                map it is talking about stays visible behind it. */}
-            {view === "dispatch" ? <LoadsTab /> : body}
+            {/* Dispatch is the map plus the agent: the run happens here, and
+                where the truck is IS the content. Loads is the list and has no
+                map. Rendering LoadsTab here made the two tabs identical. */}
+            {view === "dispatch" ? <TripTab /> : body}
           </div>
 
           {view === "dispatch" && (
