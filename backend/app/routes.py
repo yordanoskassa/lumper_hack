@@ -83,6 +83,71 @@ async def health():
             "model": s.gemini_model}
 
 
+@router.get("/fleet")
+async def fleet():
+    """Who is where, on what, and how much clock they have left. A dispatcher's
+    fleet screen — not a directory of our own agents."""
+    t = await bank.get("settings", "tenant") or {}
+    trucks = list(t.get("fleet") or [])
+    det = await bank.get("detention", "active")
+    for tr in trucks:
+        # a truck sitting at a dock with the meter running is the thing a
+        # dispatcher most needs to see from across the room
+        if det and det.get("active") and det.get("truck_id") == tr["id"]:
+            tr["detention"] = {"minutes_on_site": det.get("minutes_on_site"),
+                               "owed": det.get("owed")}
+    return {"carrier": t.get("name", "K&M Hauling"), "trucks": trucks}
+
+
+@router.get("/money")
+async def money():
+    """Everything owed to this carrier and where it is stuck. This is Payday's
+    work as a screen: detention claims, invoices out, and which brokers are
+    slow, drawn from the same records the agents write."""
+    claims = await bank.all("detention_claims")
+    brokers = {b["_key"]: b for b in await bank.all("brokers")}
+    out = await bank.all("outbox")
+
+    def claim_row(c: dict) -> dict:
+        return {
+            "id": c.get("posting_id"), "broker": c.get("broker"),
+            "mc": c.get("mc"), "stop": c.get("stop"),
+            "minutes_on_site": c.get("minutes_on_site"),
+            "billable_minutes": c.get("billable_minutes"),
+            "rate_per_hour": c.get("rate_per_hour"),
+            "owed": round(float(c.get("owed") or 0), 2),
+            "status": c.get("status", "OPEN"),
+            "paid": bool(c.get("paid")),
+            "evidence": bool(c.get("gps_evidence") or c.get("notice_sent")),
+        }
+
+    rows = [claim_row(c) for c in claims]
+    open_claims = [r for r in rows if not r["paid"]]
+    invoices = [
+        {"id": m.get("load_id") or m.get("subject", "")[:24],
+         "to": m.get("to"), "subject": m.get("subject"),
+         "amount": m.get("amount"), "ts": m.get("ts")}
+        for m in out if (m.get("kind") or "").startswith("invoice")
+    ]
+    aging = sorted(
+        ({"broker": b.get("name"), "mc": k,
+          "avg_pay_days": b.get("avg_pay_days") or 0,
+          "unpaid": b.get("unpaid") or 0,
+          "detention_denied": b.get("detention_denied") or 0,
+          "prior_loads": b.get("prior_loads") or 0}
+         for k, b in brokers.items()
+         if (b.get("unpaid") or b.get("detention_denied") or b.get("prior_loads"))),
+        key=lambda r: (-r["unpaid"], -r["detention_denied"], r["avg_pay_days"]),
+    )
+    return {
+        "owed_now": round(sum(r["owed"] for r in open_claims), 2),
+        "claims": rows,
+        "invoices": invoices,
+        "aging": aging,
+        "detention_terms": (await bank.get("settings", "tenant") or {}).get("detention", {}),
+    }
+
+
 @router.get("/registry")
 async def registry():
     return {"agents": cards()}

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trace } from "@/components/Trace";
+import { VerifyScan, type Check as ScanCheck } from "@/driver/VerifyScan";
+import { runScreen } from "@/lib/screening";
 
 interface RunRow { key: string; id: string; broker: string; stage: string; day: number; amount: number; status: string }
 
@@ -76,6 +78,23 @@ export function Desk({ trace, connected, deskFromStream }: {
   // The board filters blacklisted brokers out upstream, so counting them in the
   // rows can only ever return zero. The real tally lives in the memory graph.
   const [graph, setGraph] = useState<{ flagged?: number; unpaid?: number } | null>(null);
+  // The dispatcher and the driver are looking at the same load, so they get the
+  // same evidence from the same agent — not two lookalike screens that drift.
+  const [scan, setScan] = useState<
+    { checks: ScanCheck[]; verdict: string; broker: string; impersonated: boolean } | null
+  >(null);
+  const [scanFor, setScanFor] = useState<DeskRow | null>(null);
+
+  async function openScan(r: DeskRow) {
+    setScanFor(r);
+    setScan(null);
+    const res = await runScreen(r.id, {
+      broker: r.broker,
+      blocked: r.blacklisted || r.ghost?.verdict === "REFUSE",
+      verdict: r.ghost?.verdict,
+    });
+    setScan(res);
+  }
 
   useEffect(() => { load(); }, []);
   useEffect(() => { if (deskFromStream) setDesk(deskFromStream); }, [deskFromStream]);
@@ -177,6 +196,21 @@ export function Desk({ trace, connected, deskFromStream }: {
   const flagged = desk.rows.filter((r) => r.ghost && r.ghost.verdict !== "CLEAR").length
     || (graph?.flagged ?? 0);
 
+  if (scanFor) {
+    return (
+      <div className="relative h-full">
+        <VerifyScan
+          broker={scan?.broker ?? scanFor.broker}
+          checks={scan?.checks ?? []}
+          verdict={scan?.verdict}
+          impersonated={scan?.impersonated}
+          loading={!scan}
+          onDone={() => { setScanFor(null); setScan(null); }}
+        />
+      </div>
+    );
+  }
+
   return (
     // Breakpoints do the responding, never a measured width: stacked cards is the
     // default and the six-column table is the lg-and-up upgrade.
@@ -249,7 +283,7 @@ export function Desk({ trace, connected, deskFromStream }: {
                   </div>
                 )}
                 {rows.map((r) => (
-                  <CandidateCard key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} />
+                  <CandidateCard key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} onInspect={() => openScan(r)} />
                 ))}
               </CardContent>
 
@@ -272,7 +306,7 @@ export function Desk({ trace, connected, deskFromStream }: {
                     ))}
                   </div>
                   {rows.map((r) => (
-                    <CandidateRow key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} />
+                    <CandidateRow key={r.id} r={r} on={r.id === sel} floor={desk.floor_rpm} onClick={() => selectRow(r)} onInspect={() => openScan(r)} />
                   ))}
                 </div>
               </div>
@@ -401,7 +435,9 @@ export function Desk({ trace, connected, deskFromStream }: {
 
 /** Narrow-screen load card: the same shape the driver sees on the phone —
  *  big rate, lane, miles and $/mi, one verdict badge. */
-function CandidateCard({ r, on, floor, onClick }: { r: DeskRow; on: boolean; floor: number; onClick: () => void }) {
+function CandidateCard({ r, on, floor, onClick, onInspect }: {
+  r: DeskRow; on: boolean; floor: number; onClick: () => void; onInspect: () => void;
+}) {
   const tag = tagFor(r);
   const rpmCls = !r.rate ? "text-muted-foreground" : r.rpm >= floor ? "text-ok" : "text-bad";
   return (
@@ -414,7 +450,20 @@ function CandidateCard({ r, on, floor, onClick }: { r: DeskRow; on: boolean; flo
       )}
     >
       <div className="flex items-center gap-2">
-        <Badge variant="outline" className={cn("text-[10px] tracking-[0.06em]", TAG_CLS[tag])}>{tag}</Badge>
+        <Badge
+          variant="outline"
+          role="button"
+          tabIndex={0}
+          title="Run the broker check"
+          onClick={(e) => { e.stopPropagation(); onInspect(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onInspect(); }
+          }}
+          className={cn("cursor-pointer text-[10px] tracking-[0.06em] transition-opacity hover:opacity-75",
+            TAG_CLS[tag])}
+        >
+          {tag}
+        </Badge>
         <span className="ml-auto truncate text-xs text-muted-foreground">{r.eq}</span>
       </div>
 
@@ -444,7 +493,9 @@ function CandidateCard({ r, on, floor, onClick }: { r: DeskRow; on: boolean; flo
 }
 
 /** lg-and-up table row. Same data, dense. */
-function CandidateRow({ r, on, floor, onClick }: { r: DeskRow; on: boolean; floor: number; onClick: () => void }) {
+function CandidateRow({ r, on, floor, onClick, onInspect }: {
+  r: DeskRow; on: boolean; floor: number; onClick: () => void; onInspect: () => void;
+}) {
   const tag = tagFor(r);
   return (
     <button
@@ -477,7 +528,20 @@ function CandidateRow({ r, on, floor, onClick }: { r: DeskRow; on: boolean; floo
         {r.rate ? `$${r.rpm.toFixed(2)}` : "—"}
       </div>
       <div className="min-w-0 text-right">
-        <Badge variant="outline" className={cn("text-[10px] tracking-[0.06em]", TAG_CLS[tag])}>{tag}</Badge>
+        <Badge
+          variant="outline"
+          role="button"
+          tabIndex={0}
+          title="Run the broker check"
+          onClick={(e) => { e.stopPropagation(); onInspect(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onInspect(); }
+          }}
+          className={cn("cursor-pointer text-[10px] tracking-[0.06em] transition-opacity hover:opacity-75",
+            TAG_CLS[tag])}
+        >
+          {tag}
+        </Badge>
         <div className="mt-1 truncate text-[10.5px] text-muted-foreground">
           {r.kill || (tag === "RISK" ? `${r.ghost?.failed} checks failed` : `lane $${r.lane_avg.toFixed(2)}`)}
         </div>

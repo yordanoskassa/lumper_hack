@@ -8,6 +8,7 @@ import { MapCanvas, type MapPin as Pin, type MapRoute } from "./MapCanvas";
 import { GoogleMapCanvas, hasMapsKey } from "./GoogleMap";
 import { DetentionCard, type DetentionState } from "./DetentionCard";
 import { VerifyScan, type Check as ScanCheck } from "./VerifyScan";
+import { runScreen } from "@/lib/screening";
 
 type Screen = "home" | "hunting" | "loads" | "verify" | "trip" | "dock" | "pod" | "paid";
 
@@ -98,22 +99,10 @@ export function DriverApp({ trace }: { trace?: TraceEvent[] }) {
     setVerifying(l);
     setScan(null);
     setScreen("verify");
-    try {
-      const r = await api.screen(l.id, undefined, false);
-      const v = r.verifier ?? r.ghost ?? {};
-      const checks = toChecks(v.checks);
-      setScan({ checks, verdict: v.verdict ?? (l.blocked ? "REFUSE" : "CLEAR") });
-    } catch {
-      // The board already carries a verdict and its reasons; fall back to those
-      // rather than inventing federal findings we did not actually retrieve.
-      setScan({
-        checks: l.reasons.map((r) => ({
-          q: r, detail: "From this load's screening",
-          verdict: l.blocked ? ("fail" as const) : ("pass" as const),
-        })),
-        verdict: l.blocked ? "REFUSE" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR",
-      });
-    }
+    const r = await runScreen(l.id, {
+      broker: l.broker, blocked: l.blocked, verdict: l.verdict, reasons: l.reasons,
+    });
+    setScan({ checks: r.checks, verdict: r.verdict });
   }
 
   const onTrip = screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
@@ -297,42 +286,7 @@ function Place({ gps, city, big }: { gps: boolean; city?: string; big?: boolean 
   );
 }
 
-/** The plain-English question each federal/memory check actually answers. The
- *  evidence string is the agent's own words — we never invent it here. */
-const CHECK_COPY: Record<string, { q: string; detail: string }> = {
-  safer:     { q: "Is this a real company?",                    detail: "Federal carrier registry (SAFER)" },
-  callback:  { q: "Does their phone number match the registry?", detail: "Load posting vs. the federal record" },
-  authority: { q: "Are they licensed to broker freight?",        detail: "FMCSA Licensing & Insurance" },
-  insurance: { q: "Is their bond on file?",                      detail: "FMCSA surety bond record" },
-  oos:       { q: "Have they been shut down?",                   detail: "Out-of-service orders" },
-  domain:    { q: "How old is their website?",                   detail: "Domain registration (RDAP)" },
-  phone:     { q: "Is anyone else using this number?",           detail: "Your carrier's memory" },
-  ach:       { q: "Is their bank account shared?",               detail: "Your carrier's memory" },
-  payment:   { q: "Have they paid you before?",                  detail: "Payment history" },
-  detention: { q: "Do they pay for waiting time?",               detail: "Detention claim history" },
-};
 
-interface VerifierCheck {
-  key: string; name: string; ok: boolean; warn: boolean; skipped: boolean; evidence?: string;
-}
-
-/** Map the Verifier's real checks onto the scan rows. Skipped checks are dropped
- *  rather than shown as passes — "we could not look" is not "it is clean". */
-function toChecks(list: VerifierCheck[] | undefined): ScanCheck[] {
-  if (!list?.length) return [];
-  return list
-    .filter((c) => !c.skipped)
-    .map((c) => {
-      const copy = CHECK_COPY[c.key] ?? { q: c.name, detail: "Verifier" };
-      return {
-        q: copy.q,
-        detail: copy.detail,
-        verdict: c.ok ? ("pass" as const) : c.warn ? ("warn" as const) : ("fail" as const),
-        // Only surface evidence when it says something; a passing row stays quiet.
-        found: c.ok ? undefined : c.evidence,
-      };
-    });
-}
 
 function Home({ onHunt, driver }: { onHunt: () => void; driver?: string }) {
   return (

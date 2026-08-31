@@ -49,6 +49,24 @@ TENANT = {
         "lat": 41.525, "lon": -88.083, "mpg": 6.4, "fixed_cpm": 0.62,
         "hos_left_h": 8.4, "empty_in_h": 2.07,
     },
+    # The other two trucks in the yard. A dispatcher's fleet screen is "who is
+    # where, on what, and how much clock have they got" — not an org chart of
+    # our own software.
+    "fleet": [
+        {"id": "12", "driver": "M. Alvarez", "city": "Joliet IL",
+         "lat": 41.525, "lon": -88.083, "status": "empty",
+         "hos_left_h": 8.4, "mpg": 6.4, "trailer": "Dry van", "load": None},
+        {"id": "07", "driver": "R. Okonkwo", "city": "Indianapolis IN",
+         "lat": 39.7684, "lon": -86.1581, "status": "loaded",
+         "hos_left_h": 4.1, "mpg": 6.1, "trailer": "Reefer",
+         "load": {"id": "P-90377", "dest": "Nashville TN", "rate": 1180,
+                  "broker": "Ohio Valley Logistics", "eta_h": 4.6}},
+        {"id": "21", "driver": "T. Whitfield", "city": "Toledo OH",
+         "lat": 41.6528, "lon": -83.5379, "status": "at dock",
+         "hos_left_h": 6.7, "mpg": 5.9, "trailer": "Flatbed",
+         "load": {"id": "P-90344", "dest": "Toledo OH", "rate": 940,
+                  "broker": "Great Lakes Transfer", "eta_h": 0}},
+    ],
     "floor_rpm": 1.45,
     "detention": {"rate_per_hour": 75.0, "free_hours": 2.0},
 }
