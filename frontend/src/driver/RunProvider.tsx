@@ -328,8 +328,10 @@ export function RunShell({ children, overlay }: { children: ReactNode; overlay?:
       <div className={cn(
         "min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)]",
         // a floating panel, not a column: sized to its content, scrolls on its own
-        "lg:absolute lg:top-24 lg:bottom-6 lg:left-6 lg:z-10 lg:w-[min(420px,32vw)] lg:flex-none",
-        "lg:rounded-2xl lg:border lg:border-border lg:bg-background/85 lg:p-5 lg:pb-5 lg:backdrop-blur-xl lg:shadow-2xl",
+        // Desktop: the run is rendered in the Dispatch thread, so nothing sits
+        // on the map. The phone still stacks map-then-content, because there is
+        // no second column to put it in.
+        "lg:hidden",
       )}>
         {err && (
           <div className="mb-4 rounded-lg border border-bad/35 bg-bad/12 px-4 py-3 text-[13px] text-bad">

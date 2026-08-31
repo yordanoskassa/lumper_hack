@@ -96,6 +96,19 @@ async def _store(box: str, msg: dict) -> dict:
 @tool("mail.send", scope="mail.send")
 async def send(run_id: str, to: str, subject: str, body: str,
                attachment: str | None = None, kind: str = "outbound") -> ToolResult:
+    # Demo redirect: a seeded broker lives on a reserved domain that can never
+    # receive mail, so for a live demo the message goes to the operator's own
+    # inbox instead. It says who it was addressed to, in the subject and the
+    # body — a redirected message must never read as one that reached the
+    # broker.
+    intended = to
+    demo = (settings().demo_broker_email or "").strip()
+    if demo and _reserved(_domain(to)):
+        to = demo
+        subject = f"[to {intended}] {subject}"
+        body = (f"This message was addressed to {intended}, a demo broker on a "
+                f"reserved domain. It was redirected to you.\n\n" + body)
+
     ok, why = _clearance(to)
     backend, provider_id = "sandbox", None
     if ok:
@@ -110,7 +123,7 @@ async def send(run_id: str, to: str, subject: str, body: str,
                                "body": body, "attachment": attachment, "kind": kind,
                                "backend": backend, "provider_id": provider_id,
                                "held_reason": None if backend == "live" else why})
-    line = f"→ {to} · “{subject}”" + (" · 1 attachment" if attachment else "")
+    line = f"→ {to}" + (f" (for {intended})" if to != intended else "") + f" · “{subject}”" + (" · 1 attachment" if attachment else "")
     line += f" · delivered {provider_id}" if backend == "live" else f" · Outbox — {why}"
     hub.emit(TraceEvent(run_id=run_id, agent="Mail", kind="mail",
                         tone="ok" if backend == "live" else "skip",

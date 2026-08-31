@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     resend_from: str = ""
     resend_reply_to: str = ""
     mail_live: bool = False
+    # For a live demo: mail addressed to a seeded broker is redirected here
+    # instead of being held. The original recipient is preserved in the subject
+    # and body, so the message never pretends it reached the broker.
+    demo_broker_email: str = ""
     mail_live_allowlist: str = ""
 
     # --- Load board adapter: sandbox | dat | truckstop ---

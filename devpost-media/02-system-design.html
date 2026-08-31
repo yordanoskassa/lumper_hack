@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lumper Backstop — System Design</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { width: 1600px; height: 900px; margin: 0; overflow: hidden; }
+      body {
+        font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+        background: #faf9f7;
+        color: #171719;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .canvas { position: relative; width: 1600px; height: 900px; }
+      .eyebrow {
+        position: absolute; left: 64px; top: 48px;
+        color: #747471; font-size: 15px; font-weight: 400;
+        letter-spacing: .12em; text-transform: uppercase;
+      }
+      h1 {
+        position: absolute; left: 64px; top: 76px; margin: 0;
+        font-size: 42px; font-weight: 400; letter-spacing: -.04em;
+      }
+      .brand {
+        position: absolute; right: 64px; top: 50px;
+        display: flex; align-items: center; gap: 12px;
+        color: #6f6f6b; font-size: 17px;
+      }
+      .brand img { width: 42px; height: 42px; border-radius: 10px; }
+
+      .group-label {
+        position: absolute; color: #777773; font-size: 13px;
+        letter-spacing: .11em; text-transform: uppercase;
+      }
+
+      .cloud-boundary {
+        position: absolute; left: 350px; top: 150px; width: 850px; height: 580px;
+        border: 1px solid #dededb; border-radius: 24px;
+        background: rgba(255,255,255,.62);
+      }
+      .cloud-head {
+        position: absolute; left: 382px; top: 170px;
+        display: flex; align-items: center; gap: 18px;
+      }
+      .cloud-head img { width: 154px; height: auto; }
+      .cloud-head span { color: #7a7a76; font-size: 16px; }
+
+      .node {
+        position: absolute; z-index: 2;
+        border: 1px solid #dededb; border-radius: 16px;
+        background: #fff; padding: 19px 20px;
+      }
+      .node-label {
+        color: #777773; font-size: 12px; letter-spacing: .1em;
+        text-transform: uppercase;
+      }
+      .node-title { margin-top: 8px; font-size: 25px; letter-spacing: -.025em; }
+      .node-copy { margin-top: 7px; color: #666662; font-size: 15px; line-height: 1.35; }
+
+      .client { left: 64px; top: 300px; width: 235px; height: 180px; }
+      .client-brand { display: flex; align-items: center; gap: 13px; }
+      .client-brand img { width: 50px; height: 50px; border-radius: 12px; }
+      .client .node-title { margin-top: 22px; }
+
+      .dispatch { left: 600px; top: 225px; width: 350px; height: 95px; text-align: center; }
+      .dispatch .node-title { margin-top: 6px; }
+      .dispatch .node-copy { margin-top: 3px; }
+
+      .agent { top: 380px; width: 174px; height: 120px; }
+      .finder { left: 398px; }
+      .verifier { left: 590px; }
+      .closer { left: 782px; }
+      .payday { left: 974px; border-color: #f1b18d; }
+      .agent .node-title { font-size: 22px; }
+      .agent .node-copy { font-size: 14px; }
+      .payday .node-label { color: #ea580c; }
+
+      .platform {
+        position: absolute; z-index: 2; left: 398px; top: 565px;
+        width: 750px; height: 130px; border-top: 1px solid #dededb;
+        border-bottom: 1px solid #dededb; background: #f7f6f3;
+        display: grid; grid-template-columns: repeat(4, 1fr);
+      }
+      .platform-item { padding: 25px 20px; border-right: 1px solid #e4e4e1; }
+      .platform-item:last-child { border-right: 0; }
+      .platform-item .node-title { font-size: 17px; margin-top: 8px; }
+      .platform-item .node-copy { font-size: 13px; }
+
+      .gemini { left: 1260px; top: 190px; width: 276px; height: 125px; }
+      .gemini-row { display: flex; align-items: center; gap: 15px; }
+      .gemini-row img { width: 47px; height: 47px; object-fit: contain; }
+      .gemini .node-title { margin-top: 0; font-size: 22px; }
+
+      .sources { left: 1260px; top: 365px; width: 276px; height: 310px; }
+      .source-list { margin-top: 13px; display: grid; gap: 8px; }
+      .source {
+        display: grid; grid-template-columns: 54px 1fr; align-items: center;
+        min-height: 38px;
+      }
+      .source img { max-width: 48px; max-height: 36px; object-fit: contain; }
+      .source-mark {
+        width: 38px; height: 38px; border-radius: 10px;
+        display: grid; place-items: center; background: #1e1e1e;
+        color: #fafafa; font-size: 12px; letter-spacing: .05em;
+      }
+      .source-name { font-size: 16px; }
+      .source-copy { color: #777773; font-size: 12px; margin-top: 2px; }
+
+      .memory {
+        left: 650px; top: 780px; width: 420px; height: 82px;
+        display: flex; align-items: center; justify-content: center;
+        gap: 22px; text-align: left;
+      }
+      .memory-mark {
+        width: 46px; height: 46px; border: 1px solid #f1b18d;
+        border-radius: 50%; display: grid; place-items: center;
+        color: #ea580c; font-size: 20px;
+      }
+      .memory .node-title { margin-top: 0; font-size: 20px; }
+      .memory .node-copy { margin-top: 2px; font-size: 13px; }
+
+      .flow-label {
+        position: absolute; z-index: 3; padding: 3px 8px;
+        background: #faf9f7; color: #81817d;
+        font-size: 12px; letter-spacing: .04em;
+      }
+      .rest { left: 315px; top: 342px; }
+      .reason { left: 1110px; top: 238px; }
+      .tools { left: 1095px; top: 678px; }
+      .loop { left: 1077px; top: 762px; color: #c95116; }
+
+      .lines { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+      .solid { fill: none; stroke: #bbbcb8; stroke-width: 1.6; }
+      .soft { fill: none; stroke: #d1d1cd; stroke-width: 1.25; }
+      .accent { fill: none; stroke: #ea580c; stroke-width: 2; }
+      .dash { stroke-dasharray: 6 7; }
+    </style>
+  </head>
+  <body>
+    <main class="canvas" aria-label="Lumper Backstop system design graph">
+      <div class="eyebrow">System design</div>
+      <h1>One freight desk. Four connected agents.</h1>
+      <div class="brand">
+        <img src="../frontend/public/icon.svg" alt="" />
+        <span>Lumper Backstop</span>
+      </div>
+
+      <svg class="lines" width="1600" height="900" viewBox="0 0 1600 900" aria-hidden="true">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#bbbcb8" />
+          </marker>
+          <marker id="orange-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c" />
+          </marker>
+        </defs>
+
+        <path class="solid" d="M299 390 C420 390 455 273 600 273" marker-end="url(#arrow)" />
+        <path class="solid" d="M775 320 L775 350 L485 350 L485 380" marker-end="url(#arrow)" />
+        <path class="soft" d="M775 350 L677 350 L677 380" marker-end="url(#arrow)" />
+        <path class="soft" d="M775 350 L869 350 L869 380" marker-end="url(#arrow)" />
+        <path class="soft" d="M775 350 L1061 350 L1061 380" marker-end="url(#arrow)" />
+
+        <path class="soft" d="M485 500 L485 535" />
+        <path class="soft" d="M677 500 L677 535" />
+        <path class="soft" d="M869 500 L869 535" />
+        <path class="soft" d="M1061 500 L1061 535" />
+        <path class="soft" d="M485 535 L1061 535" />
+        <path class="solid" d="M775 535 L775 565" marker-end="url(#arrow)" />
+
+        <path class="solid" d="M950 272 C1090 272 1125 252 1260 252" marker-end="url(#arrow)" />
+        <path class="solid" d="M1148 630 C1208 630 1215 520 1260 520" marker-end="url(#arrow)" />
+
+        <path class="accent" d="M1061 500 C1061 665 1050 735 990 780" marker-end="url(#orange-arrow)" />
+        <path class="accent dash" d="M730 780 C620 735 590 650 677 500" marker-end="url(#orange-arrow)" />
+        <path class="soft dash" d="M585 695 C450 740 355 610 270 480" marker-end="url(#arrow)" />
+      </svg>
+
+      <section class="cloud-boundary" aria-label="Google Cloud Run backend"></section>
+      <div class="cloud-head">
+        <img src="./assets/google-cloud-logo-fullcolor.svg" alt="Google Cloud" />
+        <span>Cloud Run · FastAPI</span>
+      </div>
+
+      <section class="node client">
+        <div class="client-brand">
+          <img src="../frontend/public/icon.svg" alt="" />
+          <div class="node-label">Driver</div>
+        </div>
+        <div class="node-title">React PWA</div>
+        <div class="node-copy">Loads · trip · paperwork · money</div>
+      </section>
+
+      <section class="node dispatch">
+        <div class="node-label">Orchestrator</div>
+        <div class="node-title">Dispatch</div>
+        <div class="node-copy">Routes every request and agent handoff</div>
+      </section>
+
+      <section class="node agent finder">
+        <div class="node-label">01</div>
+        <div class="node-title">Finder</div>
+        <div class="node-copy">Finds profitable loads</div>
+      </section>
+      <section class="node agent verifier">
+        <div class="node-label">02</div>
+        <div class="node-title">Verifier</div>
+        <div class="node-copy">Checks broker identity</div>
+      </section>
+      <section class="node agent closer">
+        <div class="node-label">03</div>
+        <div class="node-title">Closer</div>
+        <div class="node-copy">Negotiates and runs the trip</div>
+      </section>
+      <section class="node agent payday">
+        <div class="node-label">04</div>
+        <div class="node-title">Payday</div>
+        <div class="node-copy">Proves waiting and gets paid</div>
+      </section>
+
+      <section class="platform" aria-label="Secure agent platform">
+        <div class="platform-item">
+          <div class="node-label">Discovery + policy</div>
+          <div class="node-title">Registry + Gateway</div>
+          <div class="node-copy">Agent cards and scope checks</div>
+        </div>
+        <div class="platform-item">
+          <div class="node-label">Zero trust</div>
+          <div class="node-title">Identity</div>
+          <div class="node-copy">Short-lived agent tokens</div>
+        </div>
+        <div class="platform-item">
+          <div class="node-label">Input safety</div>
+          <div class="node-title">Model Armor</div>
+          <div class="node-copy">Blocks hidden instructions</div>
+        </div>
+        <div class="platform-item">
+          <div class="node-label">Long-running work</div>
+          <div class="node-title">Runtime + Trace</div>
+          <div class="node-copy">Async tasks and SSE audit</div>
+        </div>
+      </section>
+
+      <section class="node gemini">
+        <div class="gemini-row">
+          <img src="../video/public/integrations/gemini-spark.png" alt="Gemini" />
+          <div>
+            <div class="node-label">Google AI</div>
+            <div class="node-title">Gemini 3.5 Flash</div>
+          </div>
+        </div>
+        <div class="node-copy">Routing · reasoning · drafting</div>
+      </section>
+
+      <section class="node sources">
+        <div class="node-label">Live data and tools</div>
+        <div class="source-list">
+          <div class="source">
+            <img src="../video/public/integrations/google-maps.svg" alt="Google Maps" />
+            <div><div class="source-name">Routes + Geocoding</div><div class="source-copy">distance and route risk</div></div>
+          </div>
+          <div class="source">
+            <img src="../video/public/integrations/fmcsa.png" alt="FMCSA" />
+            <div><div class="source-name">FMCSA SAFER</div><div class="source-copy">broker authority and identity</div></div>
+          </div>
+          <div class="source">
+            <img src="../video/public/integrations/icann.png" alt="ICANN" />
+            <div><div class="source-name">RDAP</div><div class="source-copy">domain age and ownership</div></div>
+          </div>
+          <div class="source">
+            <img src="../video/public/integrations/nws.png" alt="NWS" />
+            <div><div class="source-name">NWS + EIA</div><div class="source-copy">weather and diesel prices</div></div>
+          </div>
+          <div class="source">
+            <div class="source-mark">LB</div>
+            <div><div class="source-name">Load-board adapter</div><div class="source-copy">production-shaped sandbox feed</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="node memory">
+        <div class="memory-mark">↺</div>
+        <div>
+          <div class="node-title">Memory Bank</div>
+          <div class="node-copy">Broker graph · lanes · claims · outcomes · MongoDB</div>
+        </div>
+      </section>
+
+      <div class="flow-label rest">REST + SSE</div>
+      <div class="flow-label reason">reasoning</div>
+      <div class="flow-label tools">live · cached · sandbox</div>
+      <div class="flow-label loop">closed learning loop</div>
+    </main>
+  </body>
+</html>

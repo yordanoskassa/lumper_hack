@@ -167,10 +167,28 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
     return m;
   }, [trace]);
 
+  // Bring the newest turn to the TOP of the viewport rather than the bottom.
+  // These answers are cards — a board, a federal record, a running clock — and
+  // pinning to the bottom scrolls you past the heading of the thing you just
+  // asked for.
+  const lastTurn = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [merged.length, trace.length]);
+    const turn = lastTurn.current;
+    if (!el) return;
+    if (turn) {
+      const top = turn.offsetTop - el.offsetTop - 8;
+      el.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    } else {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [merged.length]);
+
+  // While a card is still filling in, keep following it.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && run.screen === "hunting") el.scrollTop = el.scrollHeight;
+  }, [trace.length, run.screen]);
 
   async function send(text: string) {
     if (!text.trim() || busy) return;
@@ -218,7 +236,11 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
       <div ref={ref} className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
         <div className="mx-auto flex max-w-3xl flex-col gap-3">
           {merged.map((m, i) => (
-            <div key={i} className={cn("flex flex-col", m.role === "user" ? "items-end" : "items-start")}>
+            <div
+              key={i}
+              ref={i === merged.length - 1 ? lastTurn : undefined}
+              className={cn("flex flex-col", m.role === "user" ? "items-end" : "items-start")}
+            >
               <div className={cn(
                 "max-w-[92%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-relaxed wrap-anywhere whitespace-pre-wrap",
                 m.role === "user"
