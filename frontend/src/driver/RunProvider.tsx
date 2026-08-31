@@ -335,11 +335,10 @@ export function RunShell({ children, overlay, map = true }: {
 
       <div className={cn(
         "min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)]",
-        // a floating panel, not a column: sized to its content, scrolls on its own
-        // Desktop: the run is rendered in the Dispatch thread, so nothing sits
-        // on the map. The phone still stacks map-then-content, because there is
-        // no second column to put it in.
-        "lg:hidden",
+        // With a map behind it, desktop renders the run in the Dispatch thread
+        // instead so nothing covers the map. Without one, this content IS the
+        // page and has to be visible at every width.
+        map ? "lg:hidden" : "lg:mx-auto lg:w-full lg:max-w-3xl lg:p-8 lg:pb-8",
       )}>
         {err && (
           <div className="mb-4 rounded-lg border border-bad/35 bg-bad/12 px-4 py-3 text-[13px] text-bad">

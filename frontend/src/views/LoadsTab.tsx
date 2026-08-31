@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, X } from "lucide-react";
-import type { DriverBoard, DriverLoad } from "@/api";
+import { API_BASE, type DriverBoard, type DriverLoad } from "@/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Empty, Place, RunShell, useRun } from "@/driver/RunProvider";
@@ -52,6 +52,7 @@ export function LoadsTab() {
       )}
 
       {screen === "home" && <Home onHunt={hunt} driver={truck?.driver} />}
+      {screen === "home" && <PastLoads />}
       {screen === "hunting" && <Hunting />}
       {(screen === "loads" || screen === "verify") && board && (
         <Loads board={board} onPick={openScan} />
@@ -262,6 +263,72 @@ function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
             <span className="min-w-0">{r}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+interface PastLoad {
+  id: string; broker: string; lane: string;
+  rate: number; detention: number; status: string; days_ago: number;
+}
+
+/** What this driver has already hauled. Opening the app on an empty screen with
+ *  one button treats the driver as a new user forever; their own work is the
+ *  first thing they should see. */
+function PastLoads() {
+  const [rows, setRows] = useState<PastLoad[] | null>(null);
+  const [earned, setEarned] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(API_BASE + "/api/history")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
+      .then((d) => { if (alive) { setRows(d.loads ?? []); setEarned(d.earned ?? 0); } })
+      .catch(() => alive && setRows([]));
+    return () => { alive = false; };
+  }, []);
+
+  if (!rows?.length) return null;
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-baseline gap-2">
+        <h2 className="text-[13px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          Loads you've run
+        </h2>
+        <span className="num ml-auto text-[13px] font-semibold">
+          ${earned.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </span>
+      </div>
+
+      <div className="mt-2.5 flex flex-col gap-2">
+        {rows.slice(0, 6).map((l) => {
+          const denied = /denied/i.test(l.status);
+          return (
+            <div key={l.id + l.days_ago} className="rounded-xl border border-border bg-card px-3.5 py-3">
+              <div className="flex items-baseline gap-2">
+                <span className="truncate text-[13.5px] font-medium">{l.lane || l.id}</span>
+                <span className="num ml-auto text-[14px] font-semibold">
+                  ${(l.rate + l.detention).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11.5px] text-muted-foreground">
+                <span className="truncate">{l.broker}</span>
+                <span className={cn("ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  denied ? "bg-bad/15 text-bad" : "bg-ok/15 text-ok")}>
+                  {l.status}
+                </span>
+              </div>
+              {l.detention > 0 && (
+                <div className={cn("num mt-1 text-[11px]", denied ? "text-bad" : "text-primary")}>
+                  {denied ? "−" : "+"}${l.detention.toFixed(2)} detention
+                  {denied && " — they refused, and nobody had the timestamps"}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

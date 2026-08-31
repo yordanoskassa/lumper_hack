@@ -29,7 +29,8 @@ type View = "loads" | "trip" | "paperwork" | "money" | "dispatch" | "desk" | "fl
  *  auditor's views, not a driver's: they live under System. */
 const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
   { key: "loads", label: "Loads", short: "Loads", Icon: Truck },
-  { key: "trip", label: "My run", short: "Run", Icon: MapPin },
+  // The agent is a destination, not a sidecar. The run happens in here.
+  { key: "dispatch", label: "Dispatch", short: "Agent", Icon: Sparkles },
   { key: "paperwork", label: "Paperwork", short: "Docs", Icon: FileText },
   { key: "money", label: "Money", short: "Money", Icon: DollarSign },
 ];
@@ -112,10 +113,13 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   // run at all; which run tab shows is read straight from the context.
   const { activeTab, setTab } = useRun();
   const [section, setSection] = useState<"run" | "money" | "dispatch" | "desk" | "fleet" | "registry">("run");
-  const view: View = section === "run" ? (activeTab as View) : section;
+  // The run's own tab still drives Loads vs Paperwork; "trip" and "dock" have
+  // no tab of their own any more — they play out in the agent thread.
+  const runTab = activeTab === "trip" ? "loads" : activeTab;
+  const view: View = section === "run" ? (runTab as View) : section;
 
   function go(key: View) {
-    if (key === "loads" || key === "trip" || key === "paperwork") {
+    if (key === "loads" || key === "paperwork") {
       setTab(key);
       setSection("run");
     } else {
@@ -148,7 +152,6 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   const body = (
     <>
       {view === "loads" && <LoadsTab />}
-      {view === "trip" && <TripTab />}
       {view === "paperwork" && <PaperworkTab />}
       {view === "money" && <Money />}
       {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
@@ -277,7 +280,9 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
               entirely; on desktop they sit side by side. */}
           <div className={cn("relative min-h-0 flex-1 overflow-hidden",
             view === "dispatch" && "hidden lg:block")}>
-            {body}
+            {/* On desktop the agent widens rather than taking the screen, so the
+                map it is talking about stays visible behind it. */}
+            {view === "dispatch" ? <LoadsTab /> : body}
           </div>
 
           {view === "dispatch" && (
@@ -301,7 +306,8 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
           {/* docked, desktop only */}
           <aside className={cn(
             "hidden min-h-0 shrink-0 border-l border-border lg:flex lg:flex-col",
-            dockOpen ? "lg:w-[min(460px,34vw)]" : "lg:w-0 lg:border-l-0",
+            !dockOpen ? "lg:w-0 lg:border-l-0"
+              : view === "dispatch" ? "lg:w-[min(620px,46vw)]" : "lg:w-[min(460px,34vw)]",
           )}>
             {dockOpen && (
               <Chat

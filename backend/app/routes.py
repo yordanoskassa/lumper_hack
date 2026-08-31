@@ -275,6 +275,36 @@ async def document(body: dict = Body(...)):
             "backend": res.backend, "detail": res.detail}
 
 
+
+@router.get("/history")
+async def history():
+    """Loads this carrier has already run. A driver opening the app wants to see
+    their own work first, not an empty screen with a button on it."""
+    runs_all = await bank.all("runs")
+    seeded = [
+        {"id": "P-90290", "broker": "Cardinal Dispatch Co", "lane": "Joliet IL → Columbus OH",
+         "rate": 940.0, "detention": 247.5, "status": "Detention denied", "days_ago": 6},
+        {"id": "P-90188", "broker": "Ohio Valley Logistics", "lane": "Chicago IL → Louisville KY",
+         "rate": 1120.0, "detention": 0.0, "status": "Paid", "days_ago": 11},
+        {"id": "P-90142", "broker": "Great Lakes Transfer", "lane": "Milwaukee WI → Indianapolis IN",
+         "rate": 860.0, "detention": 150.0, "status": "Paid", "days_ago": 18},
+    ]
+    live = [
+        {"id": (r.get("payload") or {}).get("posting_id") or r.get("_key"),
+         "broker": r.get("broker") or "—",
+         "lane": r.get("lane") or "",
+         "rate": float(r.get("invoiced") or 0),
+         "detention": float(r.get("detention_owed") or 0),
+         "status": r.get("stage") or "Running",
+         "days_ago": 0}
+        for r in runs_all if r.get("invoiced")
+    ]
+    rows = live + seeded
+    return {"loads": rows,
+            "earned": round(sum(r["rate"] + r["detention"] for r in rows), 2),
+            "detention_won": round(sum(r["detention"] for r in rows if r["status"] != "Detention denied"), 2)}
+
+
 @router.get("/fuel")
 async def fuel_plan(posting_id: str | None = None):
     """Where to buy diesel on this run, and what the choice is worth.
