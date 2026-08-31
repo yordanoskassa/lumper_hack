@@ -104,8 +104,11 @@ export interface DriverBoard {
 }
 
 /** Backend origin for split deploys — frontend on Netlify, FastAPI elsewhere.
- *  Empty in dev, where the Vite proxy forwards /api to the local backend. */
-export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? "").replace(/\/+$/, "");
+ *  Production builds default to the deployed Cloud Run service; VITE_API_BASE
+ *  overrides it. Dev stays empty so the Vite proxy forwards /api locally. */
+const CLOUD_RUN = "https://lumper-backstop-1094415841088.us-central1.run.app";
+export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ??
+  (import.meta.env.PROD ? CLOUD_RUN : "")).replace(/\/+$/, "");
 const req = (path: string, init?: RequestInit) => fetch(API_BASE + path, init);
 
 async function jn<T>(r: Response): Promise<T> {
