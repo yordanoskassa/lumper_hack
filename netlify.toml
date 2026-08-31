@@ -1,0 +1,24 @@
+# Frontend only. The FastAPI backend deploys separately (EasyPanel / Cloud Run);
+# set VITE_API_BASE in the Netlify UI to that backend's https URL — it is baked
+# in at build time, so redeploy after changing it.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# The service worker must be revalidated on every load or an old shell can
+# outlive a deploy.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# SPA + PWA fallback: paths that are not real files serve the shell. Real files
+# win first because force is off.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

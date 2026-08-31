@@ -251,6 +251,12 @@ Point the frontend at the deployed backend:
 VITE_API_BASE=https://YOUR-SERVICE.run.app npm --prefix frontend run build
 ```
 
+### As a public site — Netlify + EasyPanel
+
+The frontend deploys to Netlify ([`netlify.toml`](netlify.toml) is already
+wired) and the backend container to EasyPanel; point `VITE_API_BASE` at the
+backend and rebuild. Step-by-step: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ### Demo
 
 [`docs/DEMO.md`](docs/DEMO.md) walks the whole flow and names, for each step,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { TraceEvent } from "./api";
+import { API_BASE, type TraceEvent } from "./api";
 
 // One shared SSE connection to the backend trace/state stream. Components read
 // the rolling trace list; state snapshots (desk/run) are surfaced via callback.
@@ -16,7 +16,7 @@ export function useStream(onState?: (runId: string, state: any) => void,
   cbMail.current = onMail;
 
   useEffect(() => {
-    const es = new EventSource("/api/stream");
+    const es = new EventSource(API_BASE + "/api/stream");
     es.onopen = () => setConnected(true);
     es.onerror = () => setConnected(false);
     es.onmessage = (ev) => {

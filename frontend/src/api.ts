@@ -103,6 +103,11 @@ export interface DriverBoard {
   loads: DriverLoad[];
 }
 
+/** Backend origin for split deploys — frontend on Netlify, FastAPI elsewhere.
+ *  Empty in dev, where the Vite proxy forwards /api to the local backend. */
+export const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) ?? "").replace(/\/+$/, "");
+const req = (path: string, init?: RequestInit) => fetch(API_BASE + path, init);
+
 async function jn<T>(r: Response): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   return r.json();
@@ -141,57 +146,57 @@ function deskToDriver(d: Desk, coords: Record<string, [number, number]>): Driver
 }
 
 export const api = {
-  health: () => fetch("/api/health").then(jn<any>),
-  registry: () => fetch("/api/registry").then(jn<{ agents: AgentCard[] }>),
-  tenant: () => fetch("/api/tenant").then(jn<any>),
-  desk: () => fetch("/api/desk").then(jn<Desk>),
-  scan: () => fetch("/api/scan", { method: "POST" }).then(jn<any>),
+  health: () => req("/api/health").then(jn<any>),
+  registry: () => req("/api/registry").then(jn<{ agents: AgentCard[] }>),
+  tenant: () => req("/api/tenant").then(jn<any>),
+  desk: () => req("/api/desk").then(jn<Desk>),
+  scan: () => req("/api/scan", { method: "POST" }).then(jn<any>),
   /** `explain: false` skips the Gemini prose. The driver app renders the
    *  evidence rows and never the paragraph, and it halves the wait. */
   screen: (mc: string, run_id?: string, explain = true) =>
-    fetch("/api/screen", {
+    req("/api/screen", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mc, run_id, explain }),
     }).then(jn<any>),
   book: (posting_id: string, rate?: number) =>
-    fetch("/api/book", {
+    req("/api/book", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ posting_id, rate }),
     }).then(jn<any>),
   refuse: (mc: string, run_id?: string) =>
-    fetch("/api/refuse", {
+    req("/api/refuse", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mc, run_id }),
     }).then(jn<any>),
   scenario: (which: string) =>
-    fetch("/api/scenario", {
+    req("/api/scenario", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ which }),
     }).then(jn<any>),
   chat: (message: string, run_id?: string) =>
-    fetch("/api/chat", {
+    req("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message, run_id }),
     }).then(jn<any>),
   loads: async (coords: Record<string, [number, number]>): Promise<DriverBoard> => {
-    const r = await fetch("/api/loads");
+    const r = await req("/api/loads");
     if (r.ok) return r.json();
     if (r.status !== 404) throw new Error(`${r.status} ${await r.text()}`);
-    return deskToDriver(await fetch("/api/desk").then(jn<Desk>), coords);
+    return deskToDriver(await req("/api/desk").then(jn<Desk>), coords);
   },
   arrive: (posting_id: string, lat?: number, lng?: number) =>
-    fetch("/api/arrive", {
+    req("/api/arrive", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ posting_id, lat, lng }),
     }).then(jn<{ run_id: string; started: boolean }>),
   depart: (posting_id: string, lat?: number, lng?: number) =>
-    fetch("/api/depart", {
+    req("/api/depart", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ posting_id, lat, lng }),
@@ -199,18 +204,18 @@ export const api = {
   /** null when the backend has no detention endpoint yet — caller falls back to
    *  its own clock so the phone demos standalone. */
   detention: async (): Promise<any | null> => {
-    const r = await fetch("/api/detention");
+    const r = await req("/api/detention");
     if (r.status === 404) return null;
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
     return r.json();
   },
   pod: (posting_id: string, image_b64: string, lat?: number, lng?: number) =>
-    fetch("/api/pod", {
+    req("/api/pod", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ posting_id, image_b64, lat, lng }),
     }).then(jn<{ run_id: string; started: boolean }>),
-  runs: () => fetch("/api/runs").then(jn<{ runs: any[] }>),
-  outbox: () => fetch("/api/outbox").then(jn<{ messages: any[] }>),
-  reset: () => fetch("/api/reset", { method: "POST" }).then(jn<any>),
+  runs: () => req("/api/runs").then(jn<{ runs: any[] }>),
+  outbox: () => req("/api/outbox").then(jn<{ messages: any[] }>),
+  reset: () => req("/api/reset", { method: "POST" }).then(jn<any>),
 };

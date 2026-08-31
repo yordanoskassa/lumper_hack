@@ -3,7 +3,7 @@ import {
   AlertTriangle, Camera, ChevronDown, Clock, FileCheck, FileText, Gavel,
   Mail, Navigation, Paperclip, RefreshCw, Send, ShieldX, Truck, Wallet,
 } from "lucide-react";
-import type { DriverLoad } from "@/api";
+import { API_BASE, type DriverLoad } from "@/api";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -222,8 +222,8 @@ function useEvidence(screen: string) {
   const load = useCallback(async () => {
     try {
       const [o, q] = await Promise.all([
-        fetch("/api/outbox").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
-        fetch("/api/quarantine").then((r) => (r.ok ? r.json() : { items: [] })).catch(() => ({ items: [] })),
+        fetch(API_BASE + "/api/outbox").then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))),
+        fetch(API_BASE + "/api/quarantine").then((r) => (r.ok ? r.json() : { items: [] })).catch(() => ({ items: [] })),
       ]);
       if (!alive.current) return;
       setMsgs(Array.isArray(o?.messages) ? o.messages : []);

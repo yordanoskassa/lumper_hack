@@ -10,7 +10,7 @@ import {
   Truck as TruckIcon,
   Warehouse,
 } from "lucide-react";
-import { api, type TraceEvent } from "@/api";
+import { api, API_BASE, type TraceEvent } from "@/api";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,7 +115,7 @@ export function Fleet({ trace }: { trace: TraceEvent[] }) {
   async function load(quiet = false) {
     if (!quiet) setBusy(true);
     try {
-      const r = await fetch("/api/fleet");
+      const r = await fetch(API_BASE + "/api/fleet");
       if (!r.ok) throw new Error(`${r.status}`);
       const d: FleetData = await r.json();
       setFleet({ carrier: d.carrier, trucks: Array.isArray(d.trucks) ? d.trucks : [] });

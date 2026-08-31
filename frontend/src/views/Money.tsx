@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Building2, CircleAlert, Clock, Receipt, RefreshCw, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { API_BASE } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,7 +105,7 @@ export function Money() {
   const load = useCallback(async () => {
     setBusy(true);
     try {
-      const r = await fetch("/api/money");
+      const r = await fetch(API_BASE + "/api/money");
       if (!r.ok) throw new Error(String(r.status));
       setD((await r.json()) as MoneyData);
       setFailed(false);
