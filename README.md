@@ -6,9 +6,13 @@ it, run the trip, and then fight for every dollar the load actually earned —
 including the hours the driver spent waiting at a dock. Every tool call is
 discoverable, identity-checked, policy-routed, armored, and traced.
 
-Built by Lumper Logistics LLC, on the same problem our real product solves:
+Built by **[Maze Builders LLC](https://mazebuilders.com)**, on the same problem our
+real product solves:
 small carriers lose real money to fraud and to unpaid detention because nobody
 has time to chase it. Backstop is that chase, automated.
+
+**Built with Google Gemini** · `gemini-3.5-flash` via the Google GenAI SDK ·
+deployed on Google Cloud Run.
 
 ---
 
@@ -79,6 +83,72 @@ falls out of the loop.
 
 ---
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Client["Driver's phone / browser — installable PWA"]
+        UI["React 19 · Tailwind v4 · shadcn/ui<br/>Loads · My run · Paperwork · Money"]
+    end
+
+    subgraph Cloud["Google Cloud Run — FastAPI container"]
+        DISPATCH["<b>DISPATCH</b> — orchestrator<br/>Gemini function-calling router"]
+
+        subgraph Fleet["The four worker agents"]
+            FINDER["<b>FINDER</b><br/>finds loads, money math"]
+            VERIFIER["<b>VERIFIER</b><br/>proves the broker is real"]
+            CLOSER["<b>CLOSER</b><br/>negotiates, runs the trip"]
+            PAYDAY["<b>PAYDAY</b><br/>detention clock, POD, invoice"]
+        end
+
+        subgraph Platform["Enterprise platform layer"]
+            REGISTRY["Agent Registry<br/>discovery + versioning"]
+            IDENTITY["Agent Identity<br/>short-lived signed tokens"]
+            GATEWAY["Agent Gateway<br/>scope check on every call"]
+            ARMOR["Model Armor<br/>injection + hidden-text screen"]
+            RUNTIME["Agent Runtime<br/>long-running async runs"]
+            OBS["Observability<br/>audit log + SSE trace"]
+        end
+    end
+
+    subgraph Models["Google AI"]
+        GEMINI["Gemini 3.5 Flash<br/>via Google GenAI SDK"]
+    end
+
+    subgraph External["External data — every call labelled live / sandbox / cached"]
+        SAFER["FMCSA SAFER<br/>L&amp;I + Census · keyless"]
+        MAPS["Google Maps<br/>Routes + Geocoding"]
+        EIA["EIA weekly diesel"]
+        RDAP["RDAP domain age"]
+        NWS["NWS weather"]
+        BOARD["Load board adapter<br/><i>the one simulated feed</i>"]
+    end
+
+    MEM[("Memory Bank<br/>broker graph · lanes · claims<br/>MongoDB, JSON fallback")]
+
+    UI -->|"REST + SSE"| DISPATCH
+    DISPATCH --> FINDER & VERIFIER & CLOSER & PAYDAY
+    FINDER & VERIFIER & CLOSER & PAYDAY -->|"every tool call"| GATEWAY
+    GATEWAY --> IDENTITY
+    GATEWAY --> ARMOR
+    GATEWAY --> OBS
+    GATEWAY --> SAFER & MAPS & EIA & RDAP & NWS & BOARD
+    DISPATCH & FINDER & VERIFIER & CLOSER & PAYDAY --> GEMINI
+    RUNTIME -.->|"wakes runs over simulated days"| PAYDAY & CLOSER
+    VERIFIER <--> MEM
+    PAYDAY -->|"how they actually paid"| MEM
+    REGISTRY -.->|"publishes cards + scopes"| Fleet
+    OBS -->|"live trace"| UI
+```
+
+**The closed loop.** Payday records how a broker actually paid and whether they
+fought the detention claim; Verifier reads it back on the next screen; Finder
+never spends an API call on a broker Verifier refused. A load card telling a
+driver *"they fought 3 waiting-time claims — hit ARRIVED the second you're on
+their property"* is that loop, surfaced.
+
+---
+
 ## Gemini Enterprise Agent Platform pillars
 
 | Pillar | Where it lives | What it does |
@@ -133,15 +203,70 @@ No customer data is used. Broker names and domains are synthetic (`.example.*`).
 
 ## Run it
 
+### Locally
+
 ```bash
+git clone https://github.com/yordanoskassa/lumper_hack.git
+cd lumper_hack
+cp .env.example .env          # add any keys you have; all are optional
 bash scripts/dev.sh
 ```
 
-Backend → http://127.0.0.1:8787 · Frontend → http://127.0.0.1:5180
+Backend → http://127.0.0.1:8787 · Frontend → **http://127.0.0.1:5180**
+
+Use `127.0.0.1`, not `localhost` — `localhost` resolves to IPv6 first and any
+other dev server on your machine may answer there instead.
+
 The phone view is the same URL on your network, or add it to your home screen.
+Requires Python 3.12 and Node 20+. MongoDB is optional; without it the Memory
+Bank falls back to a JSON snapshot.
 
-All API keys are **optional** — copy `.env.example` to `.env` and add any you
-have to turn `SANDBOX`/`CACHED`/`TEMPLATE` calls into `LIVE` ones.
+**Every key is optional.** With a key the tool runs live; without one the same
+code path runs a labelled fallback, and the trace says which. `GEMINI_API_KEY`
+is the only one worth setting for a first run — SAFER, RDAP, NWS and EIA diesel
+are all live with no key at all.
 
-**Stack** (same as our production app): FastAPI · google-genai · MongoDB (motor) ·
-httpx · ReportLab · React 19 + Vite + TypeScript + Tailwind v4 + shadcn/ui.
+### On Google Cloud Run
+
+```bash
+# one time — these need your own Google login
+#   https://cloud.google.com/sdk/docs/install
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+export GEMINI_API_KEY=...          # and optionally GOOGLE_MAPS_API_KEY, MONGO_URI
+bash scripts/deploy.sh
+```
+
+The script enables Cloud Run, Cloud Build and Vertex AI, builds
+`backend/Dockerfile` from source, deploys the service, and prints the live URL.
+Secrets are passed as deploy-time environment variables and never baked into the
+image. `MAIL_LIVE` stays `false`: these agents draft and send on their own
+initiative, and live sending additionally requires a key *and* the recipient's
+domain on an allowlist.
+
+Point the frontend at the deployed backend:
+
+```bash
+VITE_API_BASE=https://YOUR-SERVICE.run.app npm --prefix frontend run build
+```
+
+### Demo
+
+[`docs/DEMO.md`](docs/DEMO.md) walks the whole flow and names, for each step,
+the tab that holds the artifact proving it.
+
+**Stack** (same as our production app): FastAPI · Google GenAI SDK ·
+Gemini 3.5 Flash · MongoDB (motor) · httpx · ReportLab · React 19 + Vite +
+TypeScript + Tailwind v4 + shadcn/ui · deployed on Google Cloud Run.
+
+---
+
+<div align="center">
+
+**Lumper Backstop** — built with Google Gemini for the All Things Agentic Hackathon
+(Fortified Enterprise Fleet).
+
+© 2026 **[Maze Builders LLC](https://mazebuilders.com)**. All rights reserved.
+
+</div>

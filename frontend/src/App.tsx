@@ -7,6 +7,7 @@ import { useStream } from "@/useStream";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Chat, CHAT_GREETING } from "@/components/Chat";
+import { GeminiMark } from "@/components/GeminiMark";
 import { Desk } from "@/views/Desk";
 import { DriverApp } from "@/driver/DriverApp";
 import { Fleet } from "@/views/Fleet";
@@ -242,6 +243,15 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
         </div>
         <div className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
           {tenant?.tenant?.name ?? "K&M Hauling"} · {tenant?.tenant?.trucks ?? 3} trucks
+        </div>
+        <div className="border-t border-border px-4 py-2.5">
+          <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
+            <GeminiMark className="size-3 shrink-0" />
+            Built with Google Gemini
+          </div>
+          <div className="mt-1 text-[10.5px] text-muted-foreground">
+            © 2026 Maze Builders LLC
+          </div>
         </div>
       </aside>
 

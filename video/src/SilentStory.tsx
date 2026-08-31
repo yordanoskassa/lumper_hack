@@ -35,11 +35,11 @@ const TIMELINE = [
   { from: 8, duration: 12, component: Pressure },
   { from: 20, duration: 12, component: BackOffice },
   { from: 32, duration: 20, component: Fraud },
-  { from: 52, duration: 12, component: Detention },
-  { from: 64, duration: 8, component: Impact },
-  { from: 72, duration: 10, component: FourAgents },
-  { from: 82, duration: 20, component: Product },
-  { from: 102, duration: 12, component: Close },
+  { from: 52, duration: 15, component: Detention },
+  { from: 67, duration: 8, component: Impact },
+  { from: 75, duration: 10, component: FourAgents },
+  { from: 85, duration: 20, component: Product },
+  { from: 105, duration: 12, component: Close },
 ] as const;
 
 const appear = (frame: number, start = 0, duration = 18) => ({
