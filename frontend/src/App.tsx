@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  DollarSign, FileText, MapPin, MessageSquare, Settings2, Truck, X, type LucideIcon,
+  DollarSign, FileText, MapPin, PanelRightClose, PanelRightOpen, Settings2,
+  Sparkles, Truck, type LucideIcon,
 } from "lucide-react";
 import { api, type Desk as DeskData, type TraceEvent } from "@/api";
 import { useStream } from "@/useStream";
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Chat, CHAT_GREETING } from "@/components/Chat";
 import { GeminiMark } from "@/components/GeminiMark";
+import { LumperLogo } from "@/components/LumperLogo";
 import { Desk } from "@/views/Desk";
 import { DriverApp } from "@/driver/DriverApp";
 import { Fleet } from "@/views/Fleet";
@@ -18,7 +20,7 @@ import { Registry } from "@/views/Registry";
 import { TripTab } from "@/views/TripTab";
 import { RunProvider, useRun } from "@/driver/RunProvider";
 
-type View = "loads" | "trip" | "paperwork" | "money" | "desk" | "fleet" | "registry";
+type View = "loads" | "trip" | "paperwork" | "money" | "dispatch" | "desk" | "fleet" | "registry";
 
 /** Backstop is the driver's side of Lumper, so there is no "driver" tab — the
  *  whole product is theirs. These are the four jobs of a driver's day, which is
@@ -32,13 +34,27 @@ const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
   { key: "money", label: "Money", short: "Money", Icon: DollarSign },
 ];
 
+/** On a phone Dispatch is a destination, not a bubble hovering over the work.
+ *  On desktop it is docked open beside it — an agent you can watch is the
+ *  product, so it does not get hidden behind a button. */
+const PHONE_NAV = [...NAV, { key: "dispatch" as View, label: "Dispatch", short: "Agents", Icon: Sparkles }];
+
 const SYSTEM: { key: View; label: string }[] = [
   { key: "desk", label: "Dispatcher board" },
   { key: "fleet", label: "Truck roster" },
   { key: "registry", label: "Agents & scopes" },
 ];
 
-const ROSTER = ["Dispatch", "Finder", "Verifier", "Closer", "Payday"];
+/** One colour per agent, the same everywhere: the roster, the live trace, and
+ *  the work shown under a Dispatch answer. A fleet of five reads as five things
+ *  when they are five colours and as a list when they are all grey. */
+const ROSTER: { name: string; dot: string; ink: string; job: string }[] = [
+  { name: "Dispatch", dot: "bg-primary",        ink: "text-primary",        job: "routes the fleet" },
+  { name: "Finder",   dot: "bg-[#60A5FA]",      ink: "text-[#60A5FA]",      job: "finds the money" },
+  { name: "Verifier", dot: "bg-ok",             ink: "text-ok",             job: "proves they're real" },
+  { name: "Closer",   dot: "bg-[#C084FC]",      ink: "text-[#C084FC]",      job: "closes the deal" },
+  { name: "Payday",   dot: "bg-warn",           ink: "text-warn",           job: "gets you paid" },
+];
 
 /** Installed to a home screen, or opened at /?driver=1, the app IS the driver
  *  app — no console chrome at all. */
@@ -107,7 +123,9 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   }
   const [tenant, setTenant] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
-  const [chatOpen, setChatOpen] = useState(false);
+  // Docked open. The agents are the product; hiding them behind a bubble
+  // made the most important surface the least visible one.
+  const [dockOpen, setDockOpen] = useState(true);
   const [chatLog, setChatLog] = useState([CHAT_GREETING]);
   const [activeAgents, setActiveAgents] = useState<Record<string, number>>({});
 
@@ -146,13 +164,17 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
     <div className="h-dvh overflow-hidden bg-background lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
       {/* SIDEBAR — desktop only */}
       <aside className="hidden min-h-0 flex-col overflow-y-auto border-r border-border bg-sidebar lg:flex">
-        <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-foreground text-sm font-semibold text-background">
-            L
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center gap-2.5">
+            <LumperLogo className="size-7 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-[15px] font-semibold tracking-[-0.015em]">Lumper Backstop</div>
+              <div className="truncate text-[10.5px] text-muted-foreground">Autonomous freight desk</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-[15px] font-semibold tracking-[-0.015em]">Lumper Backstop</div>
-            <div className="truncate text-[10.5px] text-muted-foreground">Autonomous freight desk</div>
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-1">
+            <GeminiMark className="size-3 shrink-0" />
+            <span className="text-[10px] font-medium text-foreground/80">Built with Google Gemini</span>
           </div>
         </div>
 
@@ -177,17 +199,15 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
 
         <SideLabel>Fleet</SideLabel>
         <div className="flex flex-col gap-0.5 px-2">
-          {ROSTER.map((name) => {
-            const active = activeAgents[name] && now - activeAgents[name] < 3500;
+          {ROSTER.map((a) => {
+            const active = activeAgents[a.name] && now - activeAgents[a.name] < 3500;
             return (
-              <div key={name} className="flex items-center gap-2 rounded-md px-2.5 py-1.5">
-                <span
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    active ? "bg-primary pulse-dot" : "bg-ok",
-                  )}
-                />
-                <span className="truncate text-[12.5px] text-foreground/80">{name}</span>
+              <div key={a.name} className="flex items-center gap-2 rounded-md px-2.5 py-1.5">
+                <span className={cn("size-2 shrink-0 rounded-full", a.dot, active && "pulse-dot")} />
+                <span className={cn("truncate text-[12.5px] font-medium", active ? a.ink : "text-foreground/80")}>
+                  {a.name}
+                </span>
+                <span className="ml-auto truncate text-[10px] text-muted-foreground">{a.job}</span>
               </div>
             );
           })}
@@ -244,59 +264,68 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
         <div className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
           {tenant?.tenant?.name ?? "K&M Hauling"} · {tenant?.tenant?.trucks ?? 3} trucks
         </div>
-        <div className="border-t border-border px-4 py-2.5">
-          <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-            <GeminiMark className="size-3 shrink-0" />
-            Built with Google Gemini
-          </div>
-          <div className="mt-1 text-[10.5px] text-muted-foreground">
-            © 2026 Maze Builders LLC
-          </div>
+        <div className="border-t border-border px-4 py-2.5 text-[10.5px] text-muted-foreground">
+          © 2026 Maze Builders LLC
         </div>
       </aside>
 
       {/* MAIN */}
       <div className="relative flex h-dvh min-w-0 flex-col lg:h-auto lg:min-h-0">
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          {body}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* On a phone Dispatch is its own tab, so the work area yields to it
+              entirely; on desktop they sit side by side. */}
+          <div className={cn("relative min-h-0 flex-1 overflow-hidden",
+            view === "dispatch" && "hidden lg:block")}>
+            {body}
+          </div>
 
-          {/* Dispatch: a docked panel on desktop, a full sheet on a phone. */}
-          {chatOpen ? (
-            <div className="absolute inset-0 z-60 flex flex-col bg-background lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[min(560px,42vw)] lg:border-l lg:border-border lg:shadow-2xl">
-              <Button
-                variant="ghost"
-                size="tap"
-                onClick={() => setChatOpen(false)}
-                className="absolute top-2 right-2 z-10"
-              >
-                <X className="size-4" /> <span className="lg:hidden">Close</span>
-              </Button>
+          {view === "dispatch" && (
+            <div className="flex min-h-0 flex-1 flex-col lg:hidden">
               <Chat
                 chatFeed={chatFeed}
                 trace={trace}
                 local={chatLog}
                 setLocal={setChatLog}
                 onRoute={(route) => {
-                  // Take the operator where the answer landed instead of
-                  // dumping them on whatever view they happened to be on.
                   const to: Record<string, View> = {
-                    scan_board: "desk", screen_broker: "desk",
-                    book_load: "desk", run_scenario: "desk",
+                    scan_board: "loads", screen_broker: "loads",
+                    book_load: "loads", run_scenario: "loads",
                   };
                   if (to[route]) go(to[route]);
                 }}
               />
             </div>
-          ) : (
-            <Button
-              size="tap"
-              onClick={() => setChatOpen(true)}
-              className="absolute right-4 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-50 rounded-full shadow-xl lg:right-5 lg:bottom-5"
-            >
-              <MessageSquare className="size-4" />
-              Dispatch
-            </Button>
           )}
+
+          {/* docked, desktop only */}
+          <aside className={cn(
+            "hidden min-h-0 shrink-0 border-l border-border lg:flex lg:flex-col",
+            dockOpen ? "lg:w-[min(460px,34vw)]" : "lg:w-0 lg:border-l-0",
+          )}>
+            {dockOpen && (
+              <Chat
+                chatFeed={chatFeed}
+                trace={trace}
+                local={chatLog}
+                setLocal={setChatLog}
+                onRoute={(route) => {
+                  const to: Record<string, View> = {
+                    scan_board: "loads", screen_broker: "loads",
+                    book_load: "loads", run_scenario: "loads",
+                  };
+                  if (to[route]) go(to[route]);
+                }}
+              />
+            )}
+          </aside>
+
+          <button
+            onClick={() => setDockOpen((v) => !v)}
+            title={dockOpen ? "Hide Dispatch" : "Show Dispatch"}
+            className="absolute top-3 right-3 z-50 hidden size-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground lg:flex"
+          >
+            {dockOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+          </button>
         </div>
 
         {/* BOTTOM NAV — phone only. Apple-style glass: it floats over the
@@ -314,7 +343,7 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
             "supports-[backdrop-filter]:backdrop-saturate-[180%]",
           )}
         >
-          {NAV.map(({ key, short, Icon }) => {
+          {PHONE_NAV.map(({ key, short, Icon }) => {
             const on = view === key;
             return (
               <button

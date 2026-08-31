@@ -119,6 +119,10 @@ function Hunting() {
 function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) => void }) {
   // Which card is showing its source record. One at a time.
   const [raw, setRaw] = useState<string | null>(null);
+  // Tapping a load picks it. Running the check is a separate, deliberate act,
+  // and it is attributed: you are handing this posting to Verifier, not
+  // pressing a button that makes a verdict appear.
+  const [sel, setSel] = useState<string | null>(null);
   const good = board.loads.filter((l) => !l.blocked);
   const bad = board.loads.filter((l) => l.blocked);
   return (
@@ -130,7 +134,17 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
         <p className="mt-1.5 text-sm text-bad">We threw out {bad.length} you should never see.</p>
       )}
       <div className="mt-4 flex flex-col gap-3">
-        {[...good, ...bad].map((l) => <LoadCard key={l.id} l={l} onPick={onPick} raw={raw} setRaw={setRaw} />)}
+        {[...good, ...bad].map((l) => (
+          <LoadCard
+            key={l.id}
+            l={l}
+            selected={sel === l.id}
+            onSelect={() => setSel(sel === l.id ? null : l.id)}
+            onVerify={() => onPick(l)}
+            raw={raw}
+            setRaw={setRaw}
+          />
+        ))}
       </div>
     </>
   );
@@ -144,18 +158,25 @@ const VERDICT = {
   BLOCKED: { label: "BLOCKED", cls: "text-bad bg-bad/15", Icon: X },
 } as const;
 
-function LoadCard({ l, onPick, raw, setRaw }: {
-  l: DriverLoad; onPick: (l: DriverLoad) => void;
+function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
+  l: DriverLoad;
+  selected: boolean;
+  onSelect: () => void;
+  onVerify: () => void;
   raw: string | null; setRaw: (id: string | null) => void;
 }) {
   const v = VERDICT[l.blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
   const tone = l.blocked ? "text-bad" : l.verdict === "REVIEW" ? "text-warn" : "text-ok";
   return (
-    <button
-      onClick={() => onPick(l)}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
       className={cn(
-        "w-full rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted/40",
+        "w-full cursor-pointer rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted/40",
         l.blocked ? "border-bad/35 opacity-75" : "border-border",
+        selected && "ring-2 ring-primary/60",
       )}
     >
       <div className="mb-2.5 flex items-center gap-2">
@@ -213,6 +234,27 @@ function LoadCard({ l, onPick, raw, setRaw }: {
             </div>
           </div>
         )}
+        {selected && (
+          <div className="mb-3 rounded-xl border border-ok/30 bg-ok/8 p-3">
+            <div className="flex items-center gap-2">
+              <span className="size-2 shrink-0 rounded-full bg-ok" />
+              <span className="text-[12px] font-semibold text-ok">Verifier</span>
+              <span className="text-[11.5px] text-muted-foreground">proves the broker is real</span>
+            </div>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+              Pulls the live federal record for {l.mc}, diffs it field by field against
+              what this posting claims, and checks it against everything we remember.
+            </p>
+            <Button
+              size="cab"
+              className="mt-3 bg-ok text-[#052e21] hover:bg-ok/90"
+              onClick={(e) => { e.stopPropagation(); onVerify(); }}
+            >
+              Run the check with Verifier
+            </Button>
+          </div>
+        )}
+
         {l.reasons.slice(0, 2).map((r, i) => (
           <div key={i} className="flex gap-2 text-[13px] text-muted-foreground">
             <v.Icon className={cn("mt-px size-3.5 shrink-0", tone)} />
@@ -220,6 +262,6 @@ function LoadCard({ l, onPick, raw, setRaw }: {
           </div>
         ))}
       </div>
-    </button>
+    </div>
   );
 }

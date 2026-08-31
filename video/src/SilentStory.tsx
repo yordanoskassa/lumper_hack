@@ -1048,6 +1048,15 @@ function Fraud() {
 
 function Detention() {
   const frame = useCurrentFrame();
+  const phase = frame < sec(5) ? 0 : frame < sec(10) ? 1 : 2;
+  const phaseStart = [0, sec(5), sec(10)][phase];
+  const phaseFrame = frame - phaseStart;
+  const phaseOpacity = interpolate(
+    phaseFrame,
+    [0, 12, sec(5) - 12, sec(5)],
+    [0, 1, 1, 0],
+    clamp,
+  );
   return (
     <Shell dark>
       <div
@@ -1060,6 +1069,27 @@ function Detention() {
       <div
         style={{
           position: "absolute",
+          left: 105,
+          top: 76,
+          padding: "10px 15px",
+          borderRadius: 999,
+          border: "1px solid rgba(255,255,255,.14)",
+          color: phase === 2 ? "#FCA5A5" : C.orange,
+          fontFamily: GEIST_MONO,
+          fontSize: 21,
+          letterSpacing: ".045em",
+          opacity: interpolate(phaseFrame, [0, 18], [0, 1], clamp),
+        }}
+      >
+        {phase === 0
+          ? "THE DELAY"
+          : phase === 1
+            ? "WHY HE SHOULD BE PAID"
+            : "WHAT HAPPENED"}
+      </div>
+      <div
+        style={{
+          position: "absolute",
           right: 105,
           top: 85,
           fontFamily: GEIST_MONO,
@@ -1069,116 +1099,252 @@ function Detention() {
       >
         MAY · LAREDO
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 115,
-          right: 115,
-          top: 230,
-          bottom: 135,
-          display: "grid",
-          gridTemplateColumns: "1fr .86fr",
-          gap: 90,
-          alignItems: "center",
-        }}
-      >
+      {phase === 0 && (
         <div
           style={{
-            opacity: interpolate(frame, [4, 28], [0, 1], clamp),
+            position: "absolute",
+            left: 120,
+            right: 120,
+            top: 230,
+            bottom: 130,
+            display: "grid",
+            gridTemplateColumns: "1fr .82fr",
+            gap: 100,
+            alignItems: "center",
+            opacity: phaseOpacity,
           }}
         >
+          <div style={{ maxWidth: 900 }}>
+            <WordReveal
+              text="The warehouse kept Victor waiting."
+              start={4}
+              step={12}
+              fontSize={72}
+              motion="rise"
+            />
+            <div
+              style={{
+                marginTop: 48,
+                fontSize: 37,
+                lineHeight: 1.35,
+                color: "#C2C2BE",
+                opacity: interpolate(frame, [75, 104], [0, 1], clamp),
+              }}
+            >
+              He could not leave. He could not take another paying job.
+            </div>
+          </div>
           <div
             style={{
-              fontFamily: GEIST_MONO,
-              fontSize: 138,
-              fontWeight: 400,
-              letterSpacing: "-.08em",
-              textShadow: `0 0 ${interpolate(frame, [20, 220], [0, 32], clamp)}px rgba(249,115,22,.18)`,
-            }}
-          >
-            06:40 → 13:15
-          </div>
-          <div style={{ fontSize: 33, color: "#C2C2BE", marginTop: 15 }}>
-            Arrived 06:40 · Loaded 13:15
-          </div>
-          <div
-            style={{
-              height: 14,
-              borderRadius: 10,
+              padding: "52px 48px",
+              borderRadius: 24,
+              border: "1px solid rgba(255,255,255,.12)",
               background: C.raised,
-              overflow: "hidden",
-              marginTop: 50,
+              textAlign: "center",
+              fontFamily: GEIST_MONO,
+              fontWeight: 400,
+              opacity: interpolate(frame, [42, 70], [0, 1], clamp),
             }}
           >
             <div
               style={{
-                width: "100%",
+                fontSize: 126,
+                lineHeight: 0.9,
+                color: C.orange,
+                letterSpacing: "-.08em",
+              }}
+            >
+              6
+            </div>
+            <div style={{ fontSize: 34, marginTop: 22 }}>HOURS</div>
+            <div
+              style={{
+                fontSize: 82,
+                lineHeight: 0.95,
+                color: C.orange,
+                marginTop: 24,
+                letterSpacing: "-.06em",
+              }}
+            >
+              35
+            </div>
+            <div style={{ fontSize: 28, marginTop: 16 }}>MINUTES</div>
+          </div>
+        </div>
+      )}
+      {phase === 1 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: "190px 120px 105px",
+            textAlign: "center",
+            opacity: phaseOpacity,
+          }}
+        >
+          <WordReveal
+            text="After 2 hours, Victor was owed money for the delay."
+            start={sec(5) + 3}
+            step={5}
+            fontSize={62}
+            motion="focus"
+            align="center"
+          />
+          <div
+            style={{
+              width: 1420,
+              height: 34,
+              margin: "92px auto 0",
+              borderRadius: 999,
+              display: "flex",
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,.12)",
+              opacity: interpolate(
+                frame,
+                [sec(5) + 50, sec(5) + 78],
+                [0, 1],
+                clamp,
+              ),
+            }}
+          >
+            <div
+              style={{
+                width: "31%",
                 height: "100%",
-                background: C.orange,
-                boxShadow: "0 0 22px rgba(249,115,22,.55)",
-                opacity: interpolate(frame, [20, 45], [0, 1], clamp),
+                background: "#55555A",
               }}
             />
+            <div style={{ width: "69%", height: "100%", background: C.orange }} />
           </div>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
+              width: 1420,
+              margin: "18px auto 0",
               fontFamily: GEIST_MONO,
-              fontSize: 21,
+              fontSize: 24,
               color: C.muted,
-              marginTop: 13,
+              opacity: interpolate(
+                frame,
+                [sec(5) + 70, sec(5) + 95],
+                [0, 1],
+                clamp,
+              ),
             }}
           >
-            <span>2 HOURS FREE</span>
-            <span>4.5 HOURS OWED</span>
-          </div>
-        </div>
-        <div
-          style={{
-            background: C.raised,
-            border: "1px solid rgba(255,255,255,.1)",
-            borderRadius: 20,
-            padding: 38,
-            opacity: interpolate(frame, [35, 62], [0, 1], clamp),
-          }}
-        >
-          <div style={{ fontFamily: GEIST_MONO, fontSize: 24, color: C.muted }}>
-            DETENTION · $65 / HR
-          </div>
-          <div
-            style={{
-              fontFamily: GEIST_MONO,
-              fontSize: 112,
-              fontWeight: 400,
-              color: C.orange,
-              marginTop: 18,
-            }}
-          >
-            $292
-          </div>
-          <div
-            style={{
-              padding: 22,
-              borderRadius: 11,
-              background: "rgba(220,38,38,.14)",
-              border: "1px solid rgba(248,113,113,.35)",
-              color: "#FCA5A5",
-              fontFamily: GEIST_MONO,
-              fontSize: 27,
-              fontWeight: 400,
-              marginTop: 24,
-              opacity: interpolate(frame, [240, 275], [0, 1], clamp),
-            }}
-          >
-            CLAIM DENIED
-            <br />
-            <span style={{ fontSize: 20, fontWeight: 400 }}>
-              NO PROOF OF ARRIVAL
+            <span>FIRST 2 HOURS · FREE</span>
+            <span style={{ color: C.orange }}>
+              NEXT 4.5 HOURS · VICTOR IS OWED
             </span>
           </div>
+          <div style={{ marginTop: 76 }}>
+            <WordReveal
+              text="That payment is called detention."
+              start={sec(5) + 76}
+              step={7}
+              fontSize={48}
+              motion="settle"
+              align="center"
+            />
+          </div>
         </div>
-      </div>
+      )}
+      {phase === 2 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: "185px 135px 100px",
+            textAlign: "center",
+            opacity: phaseOpacity,
+          }}
+        >
+          <WordReveal
+            text="They owed Victor $292. They paid him $0."
+            start={sec(10) + 3}
+            step={6}
+            fontSize={66}
+            motion="drift"
+            align="center"
+          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 34,
+              marginTop: 86,
+              opacity: interpolate(
+                frame,
+                [sec(10) + 40, sec(10) + 70],
+                [0, 1],
+                clamp,
+              ),
+            }}
+          >
+            <div
+              style={{
+                width: 470,
+                padding: "36px 42px",
+                borderRadius: 22,
+                background: C.raised,
+                border: "1px solid rgba(255,255,255,.12)",
+              }}
+            >
+              <div style={{ fontSize: 28, color: C.muted }}>
+                Victor was owed
+              </div>
+              <div
+                style={{
+                  fontFamily: GEIST_MONO,
+                  fontSize: 104,
+                  color: C.orange,
+                  marginTop: 20,
+                }}
+              >
+                $292
+              </div>
+            </div>
+            <div
+              style={{
+                width: 470,
+                padding: "36px 42px",
+                borderRadius: 22,
+                background: "rgba(127,29,29,.18)",
+                border: "1px solid rgba(248,113,113,.36)",
+              }}
+            >
+              <div style={{ fontSize: 28, color: "#FCA5A5" }}>
+                Victor received
+              </div>
+              <div
+                style={{
+                  fontFamily: GEIST_MONO,
+                  fontSize: 104,
+                  color: C.red,
+                  marginTop: 20,
+                }}
+              >
+                $0
+              </div>
+            </div>
+          </div>
+          <div
+            style={{
+              marginTop: 54,
+              fontSize: 40,
+              lineHeight: 1.3,
+              color: "#C2C2BE",
+              opacity: interpolate(
+                frame,
+                [sec(10) + 82, sec(10) + 112],
+                [0, 1],
+                clamp,
+              ),
+            }}
+          >
+            Why? He could not prove when the wait started.
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }
@@ -1228,7 +1394,7 @@ function Impact() {
               opacity: interpolate(frame, [155, 190], [0, 1], clamp),
             }}
           >
-            DOUBLE BROKERING + UNPAID DETENTION
+            FAKE BROKER: −$4,000 · UNPAID WAIT: −$292
           </div>
         </div>
       </div>
@@ -1409,8 +1575,10 @@ function FourAgents() {
         <div style={{ fontFamily: GEIST_MONO, color: C.orange }}>
           04 · PAYDAY
         </div>
-        <div style={{ fontSize: 27, marginTop: 14 }}>Document detention</div>
-        {["06:40 · GPS IN", "13:15 · GPS OUT", "$292 · FILED"].map(
+        <div style={{ fontSize: 27, marginTop: 14 }}>
+          Prove unpaid waiting time
+        </div>
+        {["06:40 · ARRIVED", "13:15 · LOADED", "$292 · SENT"].map(
           (line, i) => (
             <div
               key={line}
@@ -2004,7 +2172,7 @@ function PaydayDemo({ local }: { local: number }) {
       </div>
       <div style={{ position: "absolute", left: 105, top: 118 }}>
         <WordReveal
-          text="Turn waiting into proof."
+          text="Backstop proves how long he waited."
           start={454}
           step={7}
           fontSize={68}
@@ -2024,9 +2192,9 @@ function PaydayDemo({ local }: { local: number }) {
           />
         </div>
         {[
-          { x: 0, time: "06:40", label: "GPS IN" },
-          { x: 36, time: "09:00", label: "FREE TIME ENDS" },
-          { x: 100, time: "13:15", label: "GPS OUT" },
+          { x: 0, time: "06:40", label: "ARRIVED" },
+          { x: 36, time: "09:00", label: "PAY STARTS" },
+          { x: 100, time: "13:15", label: "LOADED" },
         ].map((point, i) => (
           <div
             key={point.time}
@@ -2091,7 +2259,7 @@ function PaydayDemo({ local }: { local: number }) {
           gap: 18,
         }}
       >
-        {["GEOFENCE", "TIMESTAMPS", "RATE CON"].map((proof, i) => (
+        {["LOCATION RECORD", "TIME RECORD", "SIGNED RATE"].map((proof, i) => (
           <div
             key={proof}
             style={{
@@ -2122,7 +2290,7 @@ function PaydayDemo({ local }: { local: number }) {
         }}
       >
         <div style={{ fontFamily: GEIST_MONO, color: C.muted, fontSize: 22 }}>
-          DETENTION INVOICE
+          WAITING-TIME INVOICE
         </div>
         <div
           style={{
@@ -2136,7 +2304,7 @@ function PaydayDemo({ local }: { local: number }) {
           $292
         </div>
         <div style={{ fontFamily: GEIST_MONO, color: C.green, fontSize: 25 }}>
-          FILED WITH PROOF
+          SENT WITH PROOF
         </div>
       </div>
     </AbsoluteFill>
@@ -2245,9 +2413,9 @@ export const SilentStory = () => (
     <style>{`b, strong { font-weight: 400 !important; }`}</style>
     <Audio
       src={staticFile("emotional-score.mp3")}
-      trimAfter={sec(114)}
+      trimAfter={sec(117)}
       volume={(f) =>
-        interpolate(f, [0, 45, sec(108), sec(114)], [0, 0.92, 0.92, 0], clamp)
+        interpolate(f, [0, 45, sec(111), sec(117)], [0, 0.92, 0.92, 0], clamp)
       }
     />
     {TIMELINE.map(({ from, duration, component: Comp }) => (
