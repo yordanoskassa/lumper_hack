@@ -216,6 +216,125 @@ No customer data is used. Broker names and domains are synthetic (`.example.*`).
 
 ---
 
+## Reproducible testing
+
+Every claim below is a command you can run and an output you can check against a
+source we do not control. **No key, no login, no install for the first three.**
+
+### 1 · The service is up and reports its own capabilities
+
+```bash
+curl -s https://lumper-backstop-1094415841088.us-central1.run.app/api/health
+```
+
+Returns `"fmcsa": true`, `"loadboard": "sandbox"` — the app states, on every
+boot, which feeds are live and which one is simulated.
+
+### 2 · Screen a real broker against the live federal register
+
+```bash
+curl -s -X POST https://lumper-backstop-1094415841088.us-central1.run.app/api/screen \
+  -H 'content-type: application/json' -d '{"mc":"MC-133655","explain":false}'
+```
+
+→ `SCHNEIDER NATIONAL CARRIERS, INC.` · **CLEAR** · USDOT 264184
+
+```bash
+curl -s -X POST https://lumper-backstop-1094415841088.us-central1.run.app/api/screen \
+  -H 'content-type: application/json' -d '{"mc":"MC-172829","explain":false}'
+```
+
+→ `BONES TRANSPORTATION, INC.` · **REFUSE** · USDOT 247861 · no broker
+authority, no surety bond
+
+Neither MC is in our seed data. Substitute any docket you like.
+
+### 3 · Check us against the federal source directly
+
+This is the test that matters: compare our output to FMCSA's own API, which we
+have no control over.
+
+```bash
+# Licensing & Insurance — name, address, authority, bond
+curl -s 'https://data.transportation.gov/resource/6eyk-hxee.json?docket_number=MC114211'
+
+# Motor Carrier Census — the registered phone the callback check uses
+curl -s 'https://data.transportation.gov/resource/az4n-8mr2.json?dot_number=1896'
+```
+
+→ `WARREN TRANSPORT, INC.` · DOT 00001896 · 3124 TITAN TRAIL, WATERLOO IA 50701
+· `broker_stat: A` · `bond_file: Y` · `phone: 3192336113`
+
+Now screen the same docket through the app (`{"mc":"MC-114211"}`) and compare
+field by field. They match because it is the same live call.
+
+### 4 · The fraud detection, reproduced
+
+Two postings, the **same real docket**. The only difference is the callback
+number printed on the posting.
+
+```bash
+# honest posting
+curl -s -X POST .../api/screen -d '{"mc":"P-90440","explain":false}'
+# → CLEAR · "posting contact matches the registered contact"
+
+# hijacked posting
+curl -s -X POST .../api/screen -d '{"mc":"P-90441","explain":false}'
+# → REFUSE · "posting says 469-555-0177 · SAFER says 800-435-0940 · MISMATCH"
+```
+
+The registry phone in that output is fetched live at request time. Change the
+seeded `cph` in `data/seed.py` and the verdict changes with it.
+
+### 5 · The whole flow, end to end
+
+```bash
+B=https://lumper-backstop-1094415841088.us-central1.run.app
+curl -s -X POST $B/api/reset                                     # clean seed
+curl -s $B/api/loads                                             # the board
+curl -s -X POST $B/api/interest -H 'content-type: application/json' \
+  -d '{"posting_id":"P-90412"}'                                  # offer email
+curl -s -X POST $B/api/detention/request -H 'content-type: application/json' \
+  -d '{"posting_id":"P-90412"}'                                  # notice + claim
+curl -s -X POST $B/api/document -H 'content-type: application/json' \
+  -d '{"posting_id":"P-90412","doc_type":"pod","filename":"pod.jpg"}'
+```
+
+The last call returns the raised invoice: `INV-P-90412`, linehaul plus the
+detention Payday just won. Each step reports `"backend": "live"` or `"sandbox"`
+so you can see which is which.
+
+### 6 · Locally, with the tests the app runs on itself
+
+```bash
+git clone https://github.com/yordanoskassa/lumper_hack.git && cd lumper_hack
+cp .env.example .env          # every key optional
+bash scripts/dev.sh
+curl -X POST 127.0.0.1:8787/api/reset
+```
+
+Then repeat steps 2–5 against `127.0.0.1:8787`. Same code path, same live
+federal calls — `GEMINI_API_KEY` only changes whether the prose summary is
+written by Gemini or omitted.
+
+### What is synthetic, so you can tell the halves apart
+
+The federal identity is real and live. **Our carrier's relationship with these
+brokers is not**, and it cannot be:
+
+| Field | Source |
+|---|---|
+| Legal name, DOT, address, registered phone, authority, bond | **LIVE** — FMCSA |
+| Broker email domain (`*.example.com`) | **Synthetic** — reserved domain, so no agent can email a real company |
+| ACH routing numbers | **Synthetic** — real bank details are not public |
+| "14 prior loads, pays in 22 days", detention history | **Synthetic** — we have no trading history with these carriers |
+| The load postings themselves | **Sandbox** — DAT/Truckstop need signed vendor agreements |
+
+Every tool call is tagged `LIVE` / `SANDBOX` / `CACHED` / `TEMPLATE` in the
+trace, so this table is enforced in the product, not just documented here.
+
+---
+
 ## Run it
 
 ### Locally
