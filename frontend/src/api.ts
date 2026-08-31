@@ -83,6 +83,12 @@ export interface DriverLoad {
   eq: string;
   /** What is on the deck — "2 operable sedans", "1 inoperable pickup". */
   units?: string | null;
+  /** The pickup window as the posting states it. */
+  pickup?: string | null;
+  /** Whatever else the posting advertises — "Quick Pay eligible", "Direct". */
+  posting_note?: string | null;
+  /** No posted rate: this one is answered with an offer, not a price. */
+  bid_only?: boolean;
   drive_h: number;
   lane_avg: number;
   verdict: "CLEAR" | "REVIEW" | "BLOCKED";

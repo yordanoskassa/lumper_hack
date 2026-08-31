@@ -53,6 +53,9 @@ interface RunValue {
   dockPos: [number, number] | null;
   det: DetentionState;
   offer: OfferReceipt | null;
+  /** Postings Verifier has actually been run on. A card cannot show a verdict
+   *  it has not earned. */
+  checkedIds: Set<string>;
   podImg: string | null;
   err: string | null;
   mapFailed: boolean;
@@ -108,6 +111,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   const [gps, setGps] = useState<[number, number] | null>(null);
   const [det, setDet] = useState<DetentionState>({ active: false });
   const [offer, setOffer] = useState<OfferReceipt | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [podImg, setPodImg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
@@ -191,6 +195,8 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
       broker: l.broker, blocked: l.blocked, verdict: l.verdict, reasons: l.reasons,
     });
     setScan(r);
+    // Only now has this posting earned a verdict on its card.
+    setCheckedIds((prev) => new Set(prev).add(l.id));
   }
 
   /** A blocked broker — or a pass — drops the driver back on the board. Wanting
@@ -238,7 +244,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
 
   function reset() {
     setPicked(null); setPodImg(null); setDet({ active: false });
-    setOffer(null); setDockPos(null); setScreen("home");
+    setOffer(null); setDockPos(null); setCheckedIds(new Set()); setScreen("home");
   }
 
   const onTrip = screen === "offer" || screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
@@ -291,7 +297,8 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   }, [screen, board, picked, here, onTrip]);
 
   const value: RunValue = {
-    screen, board, picked, verifying, scan, gps, dockPos, det, offer, podImg, err, mapFailed, trace,
+    screen, board, picked, verifying, scan, gps, dockPos, det, offer, checkedIds,
+    podImg, err, mapFailed, trace,
     announce,
     truck, here, pins, routes, focus, onTrip, activeTab: tab,
     hunt, openScan, finishVerify, arrive, takePaperwork, setPodImg, sendPod, reset,

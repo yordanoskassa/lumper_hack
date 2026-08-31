@@ -67,7 +67,9 @@ TENANT = {
          "load": {"id": "P-90344", "dest": "Toledo OH", "rate": 940,
                   "broker": "Great Lakes Transfer", "eta_h": 0}},
     ],
-    "floor_rpm": 1.45,
+    # Car hauling runs shorter and heavier than dry van, so the floor sits lower
+    # than a van fleet's. At 1.45 the Rockford->Nashville lane died at $1.42.
+    "floor_rpm": 1.35,
     "detention": {"rate_per_hour": 75.0, "free_hours": 2.0},
 }
 
@@ -106,6 +108,28 @@ BROKERS: list[dict] = [
      "phone": "800-435-0940", "ach": "RT-071000039", "prior_loads": 3, "avg_pay_days": 24,
      "unpaid": 0, "email": "dispatch@anwebber.example.com", "real_mc": True,
      "detention_claims": 1, "detention_denied": 0, "detention_unpaid": 0, "responds_in_h": 3},
+    # Three more REAL dockets, all confirmed live against Licensing & Insurance:
+    # active bonded broker authority, bond on file. They are the CLEAN loads on
+    # this board — the point is that a judge can look each one up on
+    # safer.fmcsa.dot.gov and get the same answer the app just showed them.
+    # Only real companies that PASS appear here; nothing real is ever cast as
+    # the fraudster. Where a real docket is attached to a scam, the app says
+    # "someone posing as" and blacklists the impostor's contact, not the docket.
+    {"_key": "MC-114211", "name": "Warren Transport, Inc.", "domain": "warrentransport.com",
+     "domain_age_days": 9900, "authority_age_days": 21900, "insurance": True, "oos": False,
+     "phone": "319-233-6113", "ach": "RT-073900465", "prior_loads": 14, "avg_pay_days": 22,
+     "unpaid": 0, "email": "dispatch@warrentransport.example.com", "real_mc": True,
+     "detention_claims": 2, "detention_denied": 0, "detention_unpaid": 0, "responds_in_h": 4},
+    {"_key": "MC-107012", "name": "North American Van Lines, Inc.", "domain": "navl.com",
+     "domain_age_days": 10800, "authority_age_days": 24000, "insurance": True, "oos": False,
+     "phone": "260-429-2511", "ach": "RT-074000010", "prior_loads": 6, "avg_pay_days": 26,
+     "unpaid": 0, "email": "dispatch@navl.example.com", "real_mc": True,
+     "detention_claims": 1, "detention_denied": 0, "detention_unpaid": 0, "responds_in_h": 6},
+    {"_key": "MC-109533", "name": "TForce Freight, Inc.", "domain": "tforcefreight.com",
+     "domain_age_days": 9200, "authority_age_days": 23000, "insurance": True, "oos": False,
+     "phone": "800-333-7400", "ach": "RT-051000017", "prior_loads": 2, "avg_pay_days": 29,
+     "unpaid": 0, "email": "dispatch@tforcefreight.example.com", "real_mc": True,
+     "detention_claims": 0, "detention_denied": 0, "detention_unpaid": 0, "responds_in_h": 9},
     {"_key": "MC-880151", "name": "Meridian Logistics Group", "domain": "meridianlogistics.example.com",
      "domain_age_days": 3410, "authority_age_days": 3650, "insurance": True, "oos": False,
      "phone": "312-555-0142", "ach": "RT-071000013", "prior_loads": 14, "avg_pay_days": 22,
@@ -167,52 +191,49 @@ BROKERS: list[dict] = [
 # `cph`/`cem` are the contact phone/email printed on the posting; Verifier
 # cross-checks them against the registered contact for the claimed MC.
 BOARD: list[dict] = [
-    # Auto transport. `units` is what is actually on the deck — a demo board
-    # that says "Dry van" and then shows a car hauler is the first thing a
-    # judge stops believing.
+    # Auto transport. Four lanes a judge can follow, each on a REAL federal
+    # docket, so the SAFER retrieval in the Verifier is provably a live call:
+    # look the MC up on safer.fmcsa.dot.gov and you get the same record.
     #
-    # --- the two postings carrying the REAL federal docket ---------------
-    # P-90440 is honest: the contact phone on it is the number FMCSA has on
-    # file for MC-222428, and the live SAFER retrieval confirms it.
-    {"id": "P-90440", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1080, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 23, "src": "DAT",
+    # `units` is what is on the deck, `pickup` the window, `bid_only` a posting
+    # with no rate (carrier bid). `cph`/`cem` are the contact printed on the
+    # posting — Verifier cross-checks them against the registered contact for
+    # the claimed MC, and that mismatch is the whole fraud tell.
+    #
+    # 1 — Chicago → Milwaukee · the honest short haul. Warren Transport.
+    {"id": "P-90412", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · 8 AM–2 PM", "note": "Verified dealer · Demo", "posted_min": 12, "src": "DAT",
+     "cph": "319-233-6113", "cem": "dispatch@warrentransport.example.com"},
+    # the bait twin: same lane, same real docket on the posting, 90% over the
+    # board rate — and a contact phone that is not Warren's.
+    {"id": "P-90431", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 1180, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +1 · flexible", "posted_min": 7, "src": "123LB",
+     "cph": "312-555-0198", "cem": "dispatch@warren-transport.example.com"},
+    # 2 — Madison → Indianapolis · A.N. Webber, honest. The contact phone on
+    # this posting IS the number FMCSA has on file, and SAFER confirms it live.
+    {"id": "P-90440", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1080, "eq": "3-car wedge", "units": "3 operable vehicles", "pickup": "Demo day +2", "note": "Quick Pay eligible · Demo", "posted_min": 23, "src": "DAT",
      "cph": "800-435-0940", "cem": "dispatch@anwebber.example.com"},
-    # P-90441 is the docket hijack: same real MC, 71% over the lane average,
-    # and the contact number is the shell ring's. Nothing on the posting says
-    # so — only the federal copy does.
-    {"id": "P-90441", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1850, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 5, "src": "123LB",
+    # the docket hijack — the money shot. Same real MC, 71% over the lane, and
+    # the callback number belongs to the shell ring. Nothing on the posting
+    # says so; only the federal copy does.
+    {"id": "P-90441", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1850, "eq": "3-car wedge", "units": "3 operable vehicles", "pickup": "Demo day +2 · urgent", "posted_min": 5, "src": "123LB",
      "cph": "469-555-0177", "cem": "ops@apexfreightsol.example.net"},
-    # The clean short haul, from the broker that has paid 14 of 14.
-    {"id": "P-90412", "mc": "MC-880151", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 12, "src": "DAT",
-     "cph": "312-555-0142", "cem": "dispatch@meridianlogistics.example.com"},
-    # the lookalike's bait: same lane, same MC on the posting, 90% over the
-    # board rate — and a contact phone that is not Meridian's.
-    {"id": "P-90431", "mc": "MC-880151", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 1180, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 7, "src": "123LB",
-     "cph": "312-555-0198", "cem": "dispatch@meridian-logistics.example.com"},
+    # 3 — Rockford → Nashville · North American Van Lines, honest.
+    {"id": "P-90419", "mc": "MC-107012", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 88, "rate": 1350, "eq": "Hotshot compatible", "units": "1 operable SUV", "pickup": "Demo day +3 · appointment", "note": "Direct · Demo", "posted_min": 6, "src": "123LB",
+     "cph": "260-429-2511", "cem": "dispatch@navl.example.com"},
     # Redline's ring, on the number the memory graph already knows.
-    {"id": "P-90419", "mc": "MC-1590044", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 88, "rate": 1350, "eq": "Hotshot compatible", "units": "1 operable SUV", "posted_min": 6, "src": "123LB",
+    {"id": "P-90418", "mc": "MC-1590044", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 88, "rate": 2100, "eq": "Hotshot compatible", "units": "1 operable SUV", "pickup": "Demo day +3 · today", "posted_min": 4, "src": "Truckstop",
      "cph": "469-555-0177", "cem": "billing@redline-brokerage.example.co"},
-    # The detention load: Cardinal Dispatch, who denied three claims because
-    # nobody ever sent them a timestamped arrival.
-    {"id": "P-90428", "mc": "MC-440058", "o": "Rockford IL", "d": "Des Moines IA", "mi": 330, "dh": 88, "rate": 1150, "eq": "Winch required", "units": "1 inoperable pickup", "posted_min": 16, "src": "DAT",
-     "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
-    {"id": "P-90418", "mc": "MC-1680087", "o": "Chicago IL", "d": "Memphis TN", "mi": 531, "dh": 63, "rate": 2350, "eq": "Enclosed hauler", "units": "1 operable exotic", "posted_min": 4, "src": "Truckstop",
-     "cph": "469-555-0177", "cem": "ops@apexfreightsol.example.net"},
-    {"id": "P-90402", "mc": "MC-500035", "o": "Chicago IL", "d": "Cincinnati OH", "mi": 298, "dh": 41, "rate": 640, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 38, "src": "DAT",
-     "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
-    {"id": "P-90388", "mc": "MC-600253", "o": "Milwaukee WI", "d": "Indianapolis IN", "mi": 279, "dh": 96, "rate": 525, "eq": "Open car hauler", "units": "1 operable sedan", "posted_min": 47, "src": "DAT",
-     "cph": "414-555-0188", "cem": "loads@gltransfer.example.com"},
-    {"id": "P-90421", "mc": "MC-1710084", "o": "Chicago IL", "d": "Dallas TX", "mi": 967, "dh": 44, "rate": 3950, "eq": "7-car stinger", "units": "7 operable vehicles", "posted_min": 3, "src": "123LB",
+    # 4 — Green Bay → Des Moines · carrier bid, no posted rate. TForce.
+    {"id": "P-90428", "mc": "MC-109533", "o": "Green Bay WI", "d": "Des Moines IA", "mi": 390, "dh": 148, "rate": 1150, "bid_only": True, "eq": "Winch required", "units": "1 inoperable pickup", "pickup": "Demo day +4–5", "note": "Equipment check · Demo", "posted_min": 16, "src": "DAT",
+     "cph": "800-333-7400", "cem": "dispatch@tforcefreight.example.com"},
+    # --- the rest of the board: what Finder throws out ------------------
+    {"id": "P-90421", "mc": "MC-1710084", "o": "Chicago IL", "d": "Dallas TX", "mi": 967, "dh": 44, "rate": 3950, "eq": "7-car stinger", "units": "7 operable vehicles", "pickup": "Demo day +2", "posted_min": 3, "src": "123LB",
      "cph": "972-555-0104", "cem": "dispatch@sunbeltfp.example.net"},
-    {"id": "P-90410", "mc": "MC-440058", "o": "Green Bay WI", "d": "Columbus OH", "mi": 316, "dh": 204, "rate": None, "eq": "Winch required", "units": "1 inoperable van", "posted_min": 19, "src": "Truckstop",
-     "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
-    {"id": "P-90412b", "mc": "MC-880151", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 14, "src": "Truckstop", "dup_of": "P-90412",
-     "cph": "312-555-0142", "cem": "dispatch@meridianlogistics.example.com"},
+    {"id": "P-90402", "mc": "MC-500035", "o": "Chicago IL", "d": "Cincinnati OH", "mi": 298, "dh": 41, "rate": 640, "eq": "Open car hauler", "units": "2 operable sedans", "pickup": "Demo day +2", "posted_min": 38, "src": "DAT",
+     "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
+    {"id": "P-90412b", "mc": "MC-114211", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 14, "src": "Truckstop", "dup_of": "P-90412",
+     "cph": "319-233-6113", "cem": "dispatch@warrentransport.example.com"},
     {"id": "P-90396", "mc": "MC-770008", "o": "Rockford IL", "d": "Pittsburgh PA", "mi": 461, "dh": 88, "rate": 900, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 87, "src": "DAT",
      "cph": "717-555-0193", "cem": "ops@keystoneload.example.com"},
-    {"id": "P-90424", "mc": "MC-500035", "o": "Madison WI", "d": "Louisville KY", "mi": 430, "dh": 118, "rate": 780, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 2, "src": "DAT",
-     "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
-    {"id": "P-90377", "mc": "MC-600253", "o": "Chicago IL", "d": "Denver CO", "mi": 1003, "dh": 29, "rate": 2100, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 216, "src": "123LB",
-     "cph": "414-555-0188", "cem": "loads@gltransfer.example.com"},
     {"id": "P-90423", "mc": "MC-440058", "o": "Chicago IL", "d": "Toledo OH", "mi": 244, "dh": 41, "rate": 525, "eq": "Open car hauler", "units": "1 operable sedan", "posted_min": 5, "src": "Truckstop",
      "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
 ]
@@ -220,12 +241,9 @@ BOARD: list[dict] = [
 # 90-day average all-in linehaul $ per loaded mile ("BigQuery lane history").
 LANES: dict[str, float] = {
     "Chicago IL→Milwaukee WI": 6.40, "Madison WI→Indianapolis IN": 3.21,
-    "Rockford IL→Nashville TN": 2.31, "Rockford IL→Des Moines IA": 2.90,
-    "Chicago IL→Memphis TN": 4.30, "Chicago IL→Cincinnati OH": 2.12,
-    "Milwaukee WI→Indianapolis IN": 2.04, "Chicago IL→Dallas TX": 4.05,
-    "Green Bay WI→Columbus OH": 2.60, "Rockford IL→Pittsburgh PA": 2.02,
-    "Madison WI→Louisville KY": 1.86, "Chicago IL→Denver CO": 2.15,
-    "Chicago IL→Toledo OH": 2.24,
+    "Rockford IL→Nashville TN": 2.31, "Green Bay WI→Des Moines IA": 2.86,
+    "Chicago IL→Cincinnati OH": 2.12, "Chicago IL→Dallas TX": 4.05,
+    "Rockford IL→Pittsburgh PA": 2.02, "Chicago IL→Toledo OH": 2.24,
 }
 
 # Episodic memory: what actually happened to THIS carrier. Verifier recalls by

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, X } from "lucide-react";
+import { AlertTriangle, Check, HelpCircle, X } from "lucide-react";
 import { API_BASE, type DriverBoard, type DriverLoad } from "@/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ function postedAgo(min?: number | null): string {
  *  because there the truck's position is part of the answer. */
 export function LoadsTab({ map = false }: { map?: boolean }) {
   const {
-    screen, board, verifying, scan, gps, truck, onTrip, picked, offer,
+    screen, board, verifying, scan, gps, truck, onTrip, picked, offer, checkedIds,
     hunt, openScan, finishVerify, setTab, reset,
   } = useRun();
 
@@ -59,7 +59,7 @@ export function LoadsTab({ map = false }: { map?: boolean }) {
       {screen === "home" && <PastLoads />}
       {screen === "hunting" && <Hunting />}
       {(screen === "loads" || screen === "verify") && board && (
-        <Loads board={board} onPick={openScan} />
+        <Loads board={board} checkedIds={checkedIds} onPick={openScan} />
       )}
 
       {/* The board's own end state: the offer went out, and this is the
@@ -97,7 +97,8 @@ function Home({ onHunt, driver }: { onHunt: () => void; driver?: string }) {
         Your truck is empty{driver ? `, ${driver.split(" ").pop()}` : ""}.
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
-        Tap once. We check every load for you before you ever see it.
+        Tap once. We price every load on real miles and real diesel — then you
+        pick one and we pull the broker's federal record in front of you.
       </p>
       <Button size="cab" className="mt-6" onClick={onHunt}>Find me a load</Button>
     </>
@@ -108,7 +109,7 @@ function Hunting() {
   const lines = [
     "Pulling every load near you…",
     "Checking real miles and fuel cost…",
-    "Running background checks on each broker…",
+    "Pricing each one against this lane's history…",
   ];
   const [i, setI] = useState(0);
   useEffect(() => {
@@ -128,28 +129,35 @@ function Hunting() {
   );
 }
 
-function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) => void }) {
+function Loads({ board, checkedIds, onPick }: {
+  board: DriverBoard; checkedIds: Set<string>; onPick: (l: DriverLoad) => void;
+}) {
   // Which card is showing its source record. One at a time.
   const [raw, setRaw] = useState<string | null>(null);
   // Tapping a load picks it. Running the check is a separate, deliberate act,
   // and it is attributed: you are handing this posting to Verifier, not
   // pressing a button that makes a verdict appear.
   const [sel, setSel] = useState<string | null>(null);
-  const good = board.loads.filter((l) => !l.blocked);
-  const bad = board.loads.filter((l) => l.blocked);
+  // Highest-paying first, exactly as a board hands it over — and NOT sorted by
+  // a verdict the driver has not asked for yet. The bait sits at the top, which
+  // is the honest picture: nothing here has been screened.
+  const rows = [...board.loads].sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
   return (
     <>
       <h1 className="text-xl font-semibold tracking-[-0.03em]">
-        {good.length} load{good.length === 1 ? "" : "s"} worth taking
+        {rows.length} load{rows.length === 1 ? "" : "s"} near you
       </h1>
-      {!!bad.length && (
-        <p className="mt-1.5 text-sm text-bad">We threw out {bad.length} you should never see.</p>
-      )}
+      <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+        Priced against real miles and real diesel. <span className="font-medium text-foreground">Nobody has
+        checked who these brokers are yet</span> — tap one and Verifier pulls the
+        federal record in front of you.
+      </p>
       <div className="mt-4 flex flex-col gap-3">
-        {[...good, ...bad].map((l) => (
+        {rows.map((l) => (
           <LoadCard
             key={l.id}
             l={l}
+            checked={checkedIds.has(l.id)}
             selected={sel === l.id}
             onSelect={() => setSel(sel === l.id ? null : l.id)}
             onVerify={() => onPick(l)}
@@ -165,20 +173,28 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
 /** Three states, never two: a REVIEW load dressed as "SAFE" with a green tick is
  *  the one lie this screen must not tell. */
 const VERDICT = {
+  UNCHECKED: { label: "NOT CHECKED YET", cls: "text-muted-foreground bg-muted", Icon: HelpCircle },
   CLEAR: { label: "CHECKED · SAFE", cls: "text-ok bg-ok/15", Icon: Check },
   REVIEW: { label: "CHECKED · ONE CATCH", cls: "text-warn bg-warn/15", Icon: AlertTriangle },
   BLOCKED: { label: "BLOCKED", cls: "text-bad bg-bad/15", Icon: X },
 } as const;
 
-function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
+function LoadCard({ l, checked, selected, onSelect, onVerify, raw, setRaw }: {
   l: DriverLoad;
+  /** Has Verifier actually run on this posting in this session? */
+  checked: boolean;
   selected: boolean;
   onSelect: () => void;
   onVerify: () => void;
   raw: string | null; setRaw: (id: string | null) => void;
 }) {
-  const v = VERDICT[l.blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
-  const tone = l.blocked ? "text-bad" : l.verdict === "REVIEW" ? "text-warn" : "text-ok";
+  // A verdict the driver has not run yet is not a verdict. Until Verifier has
+  // been handed this posting, the card says so and shows no reasons — claiming
+  // "CHECKED · SAFE" before any check ran is the one lie this screen told.
+  const v = VERDICT[!checked ? "UNCHECKED"
+    : l.blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
+  const tone = !checked ? "text-muted-foreground"
+    : l.blocked ? "text-bad" : l.verdict === "REVIEW" ? "text-warn" : "text-ok";
   return (
     <div
       role="button"
@@ -187,7 +203,7 @@ function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
       className={cn(
         "w-full cursor-pointer rounded-2xl border bg-card p-4 text-left transition-colors hover:bg-muted/40",
-        l.blocked ? "border-bad/35 opacity-75" : "border-border",
+        checked && l.blocked ? "border-bad/35 opacity-75" : "border-border",
         selected && "ring-2 ring-primary/60",
       )}
     >
@@ -198,16 +214,27 @@ function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
         <span className="ml-auto text-xs text-muted-foreground">{l.eq}</span>
       </div>
 
-      <div className={cn("num text-[34px] leading-none font-semibold tracking-[-0.035em]",
-        l.blocked && "text-muted-foreground line-through")}>
-        ${l.rate.toLocaleString()}
-      </div>
+      {l.bid_only ? (
+        <div className="text-[26px] leading-none font-semibold tracking-[-0.03em]">
+          Offer
+          <span className="ml-2 text-[13px] font-normal text-muted-foreground">carrier bid</span>
+        </div>
+      ) : (
+        <div className={cn("num text-[34px] leading-none font-semibold tracking-[-0.035em]",
+          checked && l.blocked && "text-muted-foreground line-through")}>
+          ${l.rate.toLocaleString()}
+        </div>
+      )}
       <div className="mt-2 text-[15px] font-medium">{l.origin} → {l.dest}</div>
       <div className="num mt-0.5 text-[13px] text-muted-foreground">
-        {Math.round(l.miles)} miles · ${l.rpm.toFixed(2)} a mile after fuel
+        {Math.round(l.miles)} miles
+        {!l.bid_only && <> · ${l.rpm.toFixed(2)} a mile after fuel</>}
       </div>
       {l.units && (
-        <div className="mt-1 text-[13px] text-muted-foreground">{l.units}</div>
+        <div className="mt-1 text-[13px] text-muted-foreground">{l.units} · {l.eq}</div>
+      )}
+      {l.pickup && (
+        <div className="mt-1 text-[12.5px] text-muted-foreground">Pickup {l.pickup}</div>
       )}
       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-muted-foreground">
         <span className="mono">{l.source ?? "board"}</span>
@@ -270,7 +297,7 @@ function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
           </div>
         )}
 
-        {l.reasons.slice(0, 2).map((r, i) => (
+        {checked && l.reasons.slice(0, 2).map((r, i) => (
           <div key={i} className="flex gap-2 text-[13px] text-muted-foreground">
             <v.Icon className={cn("mt-px size-3.5 shrink-0", tone)} />
             <span className="min-w-0">{r}</span>

@@ -556,8 +556,16 @@ function Blocked({ q }: { q: QuarantineItem }) {
  *  agent's job, and asking a driver to pick "dispatcher or broker" is asking
  *  them to do the routing we built a fleet to do. Payday reads what it is and
  *  sends it where it belongs. */
+/** The driver names the paper; the agent still decides who gets it. Both of
+ *  these routes to the broker — the difference is what Payday raises off it. */
+const DOC_TYPES = [
+  { key: "pod", label: "Upload POD", goes: "signed delivery bill" },
+  { key: "detention", label: "Log detention", goes: "waiting-time evidence" },
+] as const;
+
 function SendDocument() {
   const { picked } = useRun();
+  const [docType, setDocType] = useState<string>("pod");
   const [file, setFile] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
@@ -571,7 +579,8 @@ function SendDocument() {
     try {
       const r = await fetch(API_BASE + "/api/document", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ posting_id: loadId, filename: name, note: note.trim(), image_b64: file }),
+        body: JSON.stringify({ posting_id: loadId, doc_type: docType, filename: name,
+                               note: note.trim(), image_b64: file }),
       });
       const j = await r.json();
       setResult({ ok: r.ok, to: j.to, routed: j.routed_as, detail: j.detail ?? "" });
@@ -586,9 +595,27 @@ function SendDocument() {
         Send a document
       </div>
       <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-        Upload it. Payday reads what it is and sends it to the right place —
-        the broker, or your dispatcher.
+        Say what it is, and Payday works out who needs it, writes it, and sends
+        it. You never pick a recipient.
       </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {DOC_TYPES.map((d) => (
+          <button
+            key={d.key}
+            onClick={() => setDocType(d.key)}
+            className={cn(
+              "flex min-h-14 flex-col items-start justify-center rounded-xl border px-3 py-2 text-left transition-colors",
+              docType === d.key
+                ? "border-primary bg-primary/10"
+                : "border-border bg-muted/25 hover:bg-muted/40",
+            )}
+          >
+            <span className="text-[13px] font-medium">{d.label}</span>
+            <span className="text-[11px] text-muted-foreground">{d.goes}</span>
+          </button>
+        ))}
+      </div>
 
       <input
         ref={inputRef}
@@ -614,7 +641,9 @@ function SendDocument() {
         )}
       >
         <Paperclip className="size-5" />
-        {file ? name || "Document attached" : "Attach a document or take a photo"}
+        {file ? name || "Document attached"
+              : docType === "detention" ? "Photo of the dock, the seal, anything timestamped"
+              : "Photo of the signed bill"}
       </button>
 
       <textarea
@@ -627,7 +656,7 @@ function SendDocument() {
 
       <Button size="cab" className="mt-3" disabled={sending || !file} onClick={send}>
         <Send className="size-4" />
-        {sending ? "Payday is reading it…" : "Hand it to Payday"}
+        {sending ? "Payday is finding who needs this…" : "Hand it to Payday"}
       </Button>
 
       {result && (

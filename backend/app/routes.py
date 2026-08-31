@@ -247,7 +247,10 @@ async def document(body: dict = Body(...)):
     # What the paper is decides who needs it. A signed bill and a detention
     # claim are the broker's business; anything about the truck itself is the
     # carrier's own office.
-    hay = f"{filename} {note}".lower()
+    # The driver can name the document outright — one tap beats photographing a
+    # bill and hoping the agent guessed right. Inference stays as the fallback.
+    declared = (body.get("doc_type") or "").strip().lower()
+    hay = f"{declared} {filename} {note}".lower()
     if any(w in hay for w in ("detention", "waiting", "sat", "delay")):
         routed_as, to, kind = "Detention evidence", broker_email, "detention_claim"
     elif any(w in hay for w in ("bol", "pod", "delivery", "signed", "receipt")):
@@ -612,15 +615,21 @@ async def loads():
     out: list[dict] = []
     for m in board["all_rows"]:
         p = m["posting"]
-        # dupes and "call for rate" postings are noise on a phone
-        if p.get("dup_of") or not p.get("rate"):
+        # dupes are noise on a phone. A "carrier bid" posting has no rate by
+        # design — it is a real posting the driver answers with an offer, so it
+        # stays, flagged, rather than being filtered out as malformed.
+        if p.get("dup_of"):
+            continue
+        if not p.get("rate") and not p.get("bid_only"):
             continue
         broker = await bank.get("brokers", p["mc"]) or {}
         g = await dispatch().verifier.screen("driver-app", p["mc"], posting=p, silent=True)
         verdict, risk = _driver_verdict(g, p["mc"] in blacklist)
         # a load that doesn't clear the floor is not a load; it only stays on
         # the phone if it is here to be shown getting stopped
-        if m["kill"] and verdict != "BLOCKED":
+        # A bid-only posting has no rate to clear a floor with, so the profit
+        # kill cannot apply to it — the driver names the price.
+        if m["kill"] and verdict != "BLOCKED" and not p.get("bid_only"):
             continue
         o_lat, o_lng = coords_for_city(p["o"])
         d_lat, d_lng = coords_for_city(p["d"])
@@ -634,6 +643,10 @@ async def loads():
             # What is actually on the deck. A card that prices a load without
             # saying what it is asks the driver to guess whether their trailer fits.
             "units": p.get("units"),
+            "pickup": p.get("pickup"),
+            "posting_note": p.get("note"),
+            # No posted rate: the driver answers this one with an offer.
+            "bid_only": bool(p.get("bid_only")),
             # Where this posting came from and how stale it is. A load with no
             # provenance is a load you are asked to take on faith.
             "source": p.get("src"), "posted_min": p.get("posted_min"),
