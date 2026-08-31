@@ -359,6 +359,9 @@ async def loads():
             "rate": p["rate"], "miles": m["miles"], "rpm": m["rpm"],
             "net": m["net"], "deadhead": m["deadhead"], "eq": p.get("eq", "Dry van"),
             "drive_h": m["drive_h"], "lane_avg": round(m["lane_avg"], 2),
+            # Where this posting came from and how stale it is. A load with no
+            # provenance is a load you are asked to take on faith.
+            "source": p.get("src"), "posted_min": p.get("posted_min"),
             "verdict": verdict, "risk": risk, "blocked": verdict == "BLOCKED",
             "impersonated": bool(g.get("impersonated")),
             "posing_as": g.get("posing_as"),

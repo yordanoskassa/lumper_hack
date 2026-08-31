@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trace } from "@/components/Trace";
 import { VerifyScan, type Check as ScanCheck } from "@/driver/VerifyScan";
-import { runScreen } from "@/lib/screening";
+import { runScreen, type ScanResult } from "@/lib/screening";
 
 interface RunRow { key: string; id: string; broker: string; stage: string; day: number; amount: number; status: string }
 
@@ -80,9 +80,7 @@ export function Desk({ trace, connected, deskFromStream }: {
   const [graph, setGraph] = useState<{ flagged?: number; unpaid?: number } | null>(null);
   // The dispatcher and the driver are looking at the same load, so they get the
   // same evidence from the same agent — not two lookalike screens that drift.
-  const [scan, setScan] = useState<
-    { checks: ScanCheck[]; verdict: string; broker: string; impersonated: boolean } | null
-  >(null);
+  const [scan, setScan] = useState<ScanResult | null>(null);
   const [scanFor, setScanFor] = useState<DeskRow | null>(null);
 
   async function openScan(r: DeskRow) {
@@ -204,6 +202,8 @@ export function Desk({ trace, connected, deskFromStream }: {
           checks={scan?.checks ?? []}
           verdict={scan?.verdict}
           impersonated={scan?.impersonated}
+          federal={scan?.federal}
+          mc={scan?.mc}
           loading={!scan}
           onDone={() => { setScanFor(null); setScan(null); }}
         />

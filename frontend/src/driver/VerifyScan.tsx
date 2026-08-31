@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import type { FederalRecord } from "@/lib/screening";
 
 export interface Check {
   q: string;          // plain English, what a bystander understands
@@ -22,6 +24,8 @@ export function VerifyScan({
   checks,
   verdict,
   impersonated,
+  federal,
+  mc,
   loading,
   onDone,
   stepMs = 340,
@@ -31,6 +35,10 @@ export function VerifyScan({
   /** True when the docket holder is real and the posting is the forgery. The
    *  screen must never badge a licensed company as the fraudster. */
   impersonated?: boolean;
+  /** The raw record the verdict was drawn from. Shown so the claim can be
+   *  checked against the public source rather than believed. */
+  federal?: FederalRecord;
+  mc?: string;
   /** The Verifier's own call — REFUSE / REVIEW / CLEAR. A REVIEW has warnings
    *  but no hard failure, so it cannot be inferred from the rows alone. */
   verdict?: string;
@@ -39,21 +47,27 @@ export function VerifyScan({
   stepMs?: number;
 }) {
   const [shown, setShown] = useState(0);
+  const blocked = verdict === "REFUSE" || verdict === "BLACKLISTED";
+  const review = verdict === "REVIEW";
 
   // Nothing reveals until the real result is back — no pre-rolled theatre.
+  // A cleared broker moves the driver on by itself. A REFUSED one does not:
+  // this is the screen that proves the block was real — the federal record,
+  // the number that did not match, the memory it collided with — and it used to
+  // auto-close 1.3s after rendering, which is long enough to see that something
+  // happened and far too short to read what.
   useEffect(() => {
     if (loading) { setShown(0); return; }
     if (shown >= checks.length) {
-      const t = setTimeout(() => onDone?.(verdict === "REFUSE" || verdict === "BLACKLISTED"), 1300);
+      if (blocked) return;
+      const t = setTimeout(() => onDone?.(false), 1300);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setShown((n) => n + 1), stepMs);
     return () => clearTimeout(t);
-  }, [shown, checks.length, stepMs, loading, verdict]);
+  }, [shown, checks.length, stepMs, loading, verdict, blocked]);
 
   const done = !loading && shown >= checks.length;
-  const blocked = verdict === "REFUSE" || verdict === "BLACKLISTED";
-  const review = verdict === "REVIEW";
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col overflow-y-auto bg-[#0B0B0E] px-5 py-6 sm:px-8 lg:px-10">
@@ -107,6 +121,34 @@ export function VerifyScan({
           })}
         </div>
 
+        {done && federal?.legal_name && (
+          <div className="scan-row mt-4 overflow-hidden rounded-2xl border border-border bg-muted/25">
+            <div className="border-b border-border px-4 py-2.5">
+              <div className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                The federal record we read
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                Public record. Look it up yourself at safer.fmcsa.dot.gov
+                {federal.dot_number ? ` — USDOT ${federal.dot_number}` : ""}.
+              </div>
+            </div>
+            <dl className="divide-y divide-border">
+              <FedRow k="Legal name" v={federal.legal_name} />
+              {federal.dba_name && <FedRow k="Doing business as" v={federal.dba_name} />}
+              <FedRow k="USDOT" v={federal.dot_number} />
+              <FedRow k="Docket" v={federal.docket ?? mc} />
+              <FedRow k="Registered address" v={federal.registered_address} />
+              <FedRow k="Registered phone" v={federal.registered_phone} />
+              <FedRow k="Broker authority" v={federal.broker_authority} />
+              <FedRow
+                k="Surety bond"
+                v={federal.bond_on_file ? "on file" : federal.bond_required ? "REQUIRED, not on file" : "not required"}
+                tone={federal.bond_on_file ? "ok" : federal.bond_required ? "bad" : undefined}
+              />
+            </dl>
+          </div>
+        )}
+
         {done && (
           <div className={cn("scan-row mt-4 rounded-2xl border px-4 py-4",
             blocked ? "border-bad/40 bg-bad/12"
@@ -124,9 +166,27 @@ export function VerifyScan({
                 : review ? "They check out, but their record has a catch worth knowing."
                 : "Real company. They pay. Go get it."}
             </div>
+            {blocked && (
+              <Button size="cab" className="mt-4" onClick={() => onDone?.(true)}>
+                Back to the board
+              </Button>
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function FedRow({ k, v, tone }: { k: string; v?: string | null; tone?: "ok" | "bad" }) {
+  if (!v) return null;
+  return (
+    <div className="flex gap-3 px-4 py-2">
+      <dt className="w-36 shrink-0 text-[11.5px] text-muted-foreground">{k}</dt>
+      <dd className={cn("mono min-w-0 flex-1 text-[11.5px] break-words",
+        tone === "ok" ? "text-ok" : tone === "bad" ? "text-bad" : "text-foreground/85")}>
+        {v}
+      </dd>
     </div>
   );
 }

@@ -20,11 +20,28 @@ export interface VerifierCheck {
   key: string; name: string; ok: boolean; warn: boolean; skipped: boolean; evidence?: string;
 }
 
+/** The raw federal record behind the verdict. A judge can read these fields
+ *  straight off safer.fmcsa.dot.gov and get the same answer — which is the
+ *  point: the check is falsifiable in ten seconds. */
+export interface FederalRecord {
+  legal_name?: string;
+  dba_name?: string;
+  dot_number?: string;
+  docket?: string;
+  registered_address?: string;
+  registered_phone?: string;
+  broker_authority?: string;
+  bond_on_file?: boolean;
+  bond_required?: boolean;
+}
+
 export interface ScanResult {
   checks: ScanCheck[];
   verdict: string;
   broker: string;
   impersonated: boolean;
+  federal?: FederalRecord;
+  mc?: string;
 }
 
 /** Map the Verifier's real checks onto the scan rows. Skipped checks are dropped
@@ -62,6 +79,8 @@ export async function runScreen(
       verdict: v.verdict ?? (fallback?.blocked ? "REFUSE" : "CLEAR"),
       broker: v.broker ?? fallback?.broker ?? postingId,
       impersonated: Boolean(v.impersonated),
+      federal: (v.federal?.record as FederalRecord) ?? undefined,
+      mc: v.mc,
     };
   } catch {
     // The board already carries a verdict and its reasons; fall back to those

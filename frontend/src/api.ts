@@ -89,6 +89,9 @@ export interface DriverLoad {
   /** The docket is real and licensed; the POSTING is the forgery. */
   impersonated?: boolean;
   posing_as?: string | null;
+  /** Which board this posting came off, and how stale it is. */
+  source?: string | null;
+  posted_min?: number | null;
   reasons: string[];
 }
 

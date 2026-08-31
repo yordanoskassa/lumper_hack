@@ -8,6 +8,15 @@ import { VerifyScan } from "@/driver/VerifyScan";
 
 /** Find me a load, through the background check. The tab ends the moment a
  *  broker clears — from there the run belongs to Trip. */
+/** How long a posting has been sitting. A load nobody has taken in six hours is
+ *  a different proposition from one posted two minutes ago — and naming the
+ *  board it came off means the load has a provenance, not just a price. */
+function postedAgo(min?: number | null): string {
+  if (min == null) return "just posted";
+  if (min < 60) return `posted ${Math.round(min)}m ago`;
+  return `posted ${Math.floor(min / 60)}h ago`;
+}
+
 export function LoadsTab() {
   const {
     screen, board, verifying, scan, gps, truck, onTrip, picked,
@@ -27,6 +36,8 @@ export function LoadsTab() {
             checks={scan?.checks ?? []}
             impersonated={checking.impersonated}
             verdict={scan?.verdict}
+            federal={scan?.federal}
+            mc={scan?.mc ?? checking.mc}
             loading={!scan}
             onDone={finishVerify}
           />
@@ -151,6 +162,13 @@ function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => voi
       <div className="mt-2 text-[15px] font-medium">{l.origin} → {l.dest}</div>
       <div className="num mt-0.5 text-[13px] text-muted-foreground">
         {Math.round(l.miles)} miles · ${l.rpm.toFixed(2)} a mile after fuel
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-muted-foreground">
+        <span className="mono">{l.source ?? "board"}</span>
+        <span>·</span>
+        <span>{postedAgo(l.posted_min)}</span>
+        <span>·</span>
+        <span className="mono">{l.mc}</span>
       </div>
 
       <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">

@@ -9,7 +9,7 @@ import { MapCanvas, type MapPin as Pin, type MapRoute } from "./MapCanvas";
 import { GoogleMapCanvas, hasMapsKey } from "./GoogleMap";
 import { type DetentionState } from "./DetentionCard";
 import { type Check as ScanCheck } from "./VerifyScan";
-import { runScreen } from "@/lib/screening";
+import { runScreen, type ScanResult } from "@/lib/screening";
 
 export type Screen = "home" | "hunting" | "loads" | "verify" | "trip" | "dock" | "pod" | "paid";
 
@@ -39,7 +39,7 @@ interface RunValue {
   board: DriverBoard | null;
   picked: DriverLoad | null;
   verifying: DriverLoad | null;
-  scan: { checks: ScanCheck[]; verdict: string } | null;
+  scan: ScanResult | null;
   gps: [number, number] | null;
   dockPos: [number, number] | null;
   det: DetentionState;
@@ -87,7 +87,9 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   const [board, setBoard] = useState<DriverBoard | null>(null);
   const [picked, setPicked] = useState<DriverLoad | null>(null);
   const [verifying, setVerifying] = useState<DriverLoad | null>(null);
-  const [scan, setScan] = useState<{ checks: ScanCheck[]; verdict: string } | null>(null);
+  // Keep the whole result: the raw federal record is the receipt that makes
+  // the verdict checkable, and narrowing the type here silently dropped it.
+  const [scan, setScan] = useState<ScanResult | null>(null);
   const [gps, setGps] = useState<[number, number] | null>(null);
   const [det, setDet] = useState<DetentionState>({ active: false });
   const [podImg, setPodImg] = useState<string | null>(null);
@@ -170,7 +172,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
     const r = await runScreen(l.id, {
       broker: l.broker, blocked: l.blocked, verdict: l.verdict, reasons: l.reasons,
     });
-    setScan({ checks: r.checks, verdict: r.verdict });
+    setScan(r);
   }
 
   /** A blocked broker drops the driver back on the board; a cleared one becomes
