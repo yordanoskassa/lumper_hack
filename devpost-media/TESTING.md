@@ -95,9 +95,17 @@ the prose summary is Gemini-written or omitted; the checks run either way.
   require signed vendor agreements. The adapter is production-shaped
   (`tools/loadboards.py`); `LOADBOARD_ADAPTER=dat` plus credentials changes
   nothing else.
-- Every company on the board is a REAL licensed broker, verified live before it
-  was seeded. The fraud postings are hijacks of those real dockets; the impostor
-  identities behind the phone numbers are fictional on purpose.
+- Every load posting is FABRICATED. No real load, rate, shipment or transaction
+  appears anywhere in this project.
+- Every broker company named on the board is a REAL, active, bonded broker,
+  verified live before it was seeded — and each appears ONLY as the victim of a
+  fabricated impersonation. No wrongdoing by any named company is depicted,
+  alleged or implied. The app says so on screen ("someone posing as"), and
+  refusing a load blacklists the impostor's contact, never the docket holder.
+  That is how double brokering actually works: it hijacks a legitimate carrier's
+  identity, and that carrier is the party harmed. No affiliation with or
+  endorsement by any named company is claimed; every record shown is public
+  FMCSA information.
 
 Every tool call is tagged LIVE / SANDBOX / CACHED / TEMPLATE in the trace, so
 the distinctions above are enforced in the product, not just claimed here.
