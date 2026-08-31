@@ -147,7 +147,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
 
   const truck = board?.truck;
   const here: [number, number] =
-    dockPos ?? gps ?? (truck ? [truck.lat, truck.lng] : [41.525, -88.0834]);
+    dockPos ?? gps ?? (truck ? [truck.lat, truck.lng] : CITY_COORDS["Grand Rapids MI"]);
 
   async function hunt() {
     say("Find me a load");
@@ -405,7 +405,7 @@ export function Place({ gps, city, big }: { gps: boolean; city?: string; big?: b
         {gps ? "Live location" : "Last known"}
       </div>
       <div className={cn("mt-0.5 font-semibold tracking-[-0.035em]", big ? "text-3xl" : "text-2xl")}>
-        {city ?? "Joliet, IL"}
+        {city ?? "Locating…"}
       </div>
     </div>
   );

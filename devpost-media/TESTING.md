@@ -4,7 +4,8 @@ Paste the block below into Devpost's optional "Testing Instructions" field.
 
 ---
 
-**Live app:** https://lumper-backstop-1094415841088.us-central1.run.app
+**Live app (start here):** https://lumperbackstop.netlify.app
+**API:** https://lumper-backstop-1094415841088.us-central1.run.app
 **Repo:** https://github.com/yordanoskassa/lumper_hack
 
 **No credentials needed.** Nothing to install for steps 1–3. There is no login,

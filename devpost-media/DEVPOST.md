@@ -4,6 +4,7 @@
 **Tagline** (55 chars): `Four agents run the back office for one-truck carriers.`
 **Track:** The Fortified Enterprise Fleet
 **Team:** Maze Builders LLC
+**Live app:** https://lumperbackstop.netlify.app
 **Repo:** https://github.com/yordanoskassa/lumper_hack
 
 Paste the sections below into the matching Devpost story fields.

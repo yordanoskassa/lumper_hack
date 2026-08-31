@@ -127,7 +127,7 @@ async function jn<T>(r: Response): Promise<T> {
 /** Until the backend ships /api/loads, fold the desk board into the driver shape
  *  so the phone is demoable on its own. Coordinates come from the city table. */
 function deskToDriver(d: Desk, coords: Record<string, [number, number]>): DriverBoard {
-  const truckCity: string = d.truck?.city ?? "Joliet IL";
+  const truckCity: string = d.truck?.city ?? "Grand Rapids MI";
   const [tlat, tlng] = coords[truckCity] ?? [41.525, -88.0834];
   // Finder already killed the unprofitable ones; the driver should never scroll
   // past them. Blocked brokers stay, because the block is the point.
