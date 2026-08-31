@@ -37,7 +37,8 @@ const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
 /** On a phone Dispatch is a destination, not a bubble hovering over the work.
  *  On desktop it is docked open beside it — an agent you can watch is the
  *  product, so it does not get hidden behind a button. */
-const PHONE_NAV = [...NAV, { key: "dispatch" as View, label: "Dispatch", short: "Agents", Icon: Sparkles }];
+// Four tabs. Dispatch is somewhere the app takes you, not a fifth destination.
+const PHONE_NAV = NAV;
 
 const SYSTEM: { key: View; label: string }[] = [
   { key: "desk", label: "Dispatcher board" },
@@ -110,7 +111,7 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   // so the view was stuck for good. `section` only tracks whether we are in the
   // run at all; which run tab shows is read straight from the context.
   const { activeTab, setTab } = useRun();
-  const [section, setSection] = useState<"run" | "money" | "desk" | "fleet" | "registry">("run");
+  const [section, setSection] = useState<"run" | "money" | "dispatch" | "desk" | "fleet" | "registry">("run");
   const view: View = section === "run" ? (activeTab as View) : section;
 
   function go(key: View) {
@@ -118,7 +119,7 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
       setTab(key);
       setSection("run");
     } else {
-      setSection(key as "money" | "desk" | "fleet" | "registry");
+      setSection(key as "money" | "dispatch" | "desk" | "fleet" | "registry");
     }
   }
   const [tenant, setTenant] = useState<any>(null);

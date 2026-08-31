@@ -288,7 +288,12 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
  *  canvas beside the content on a desktop. Pure breakpoints — no measuring.
  *  `overlay` is for full-bleed takeovers like the background check, which have
  *  to sit inside this positioned root to cover the map as well as the copy. */
-export function RunShell({ children, overlay }: { children: ReactNode; overlay?: ReactNode }) {
+export function RunShell({ children, overlay, map = true }: {
+  children: ReactNode; overlay?: ReactNode;
+  /** The map belongs to the tabs where position is the point — finding a load
+   *  and running the trip. On the others it was the same picture three times. */
+  map?: boolean;
+}) {
   const { screen, pins, routes, focus, gps, truck, mapFailed, setMapFailed, err, trace } = useRun();
   return (
     // Phone: map on top, content beneath. Desktop: the map IS the surface, full
@@ -296,6 +301,7 @@ export function RunShell({ children, overlay }: { children: ReactNode; overlay?:
     // column beside a map means the map is decoration and the column is mostly
     // empty — this way the map is the product and the words sit on it.
     <div className="relative flex h-full flex-col overflow-hidden bg-background text-foreground">
+      {map && (
       <div className="relative h-[38vh] max-h-95 min-h-60 shrink-0 lg:absolute lg:inset-0 lg:h-full lg:max-h-none">
         {/* Real tiles when a key is present. The keyless map stays as the
             fallback so a dead network on stage degrades instead of failing. */}
@@ -319,11 +325,13 @@ export function RunShell({ children, overlay }: { children: ReactNode; overlay?:
         )}
         {trace && trace.length > 0 && <TracePeek trace={trace} />}
       </div>
+      )}
 
-      {/* Where the truck is, over the map, on desktop. */}
-      <div className="pointer-events-none absolute top-6 left-6 z-10 hidden lg:block">
-        <Place gps={!!gps} city={truck?.city} big />
-      </div>
+      {map && (
+        <div className="pointer-events-none absolute top-6 left-6 z-10 hidden lg:block">
+          <Place gps={!!gps} city={truck?.city} big />
+        </div>
+      )}
 
       <div className={cn(
         "min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom)+9rem)]",

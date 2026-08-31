@@ -29,6 +29,7 @@ export function LoadsTab() {
 
   return (
     <RunShell
+      map={false}
       overlay={
         checking ? (
           <VerifyScan

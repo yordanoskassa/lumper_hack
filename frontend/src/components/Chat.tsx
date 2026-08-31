@@ -29,11 +29,13 @@ export const CHAT_GREETING: Msg = {
     "do the whole run from this thread. Or name any real MC number and I'll check it.",
 };
 
-const SUGGESTIONS = [
-  "Find me a load",
-  "Check broker MC-133655",
-  "Run the callback scenario",
-  "Run the detention scenario",
+/** Short, and each one is an action the fleet takes — not a menu of features.
+ *  The first is what a driver actually opens the app to do. */
+const SUGGESTIONS: { label: string; send: string }[] = [
+  { label: "Find me a load", send: "Find me a load" },
+  { label: "Screen a broker", send: "Check broker MC-133655" },
+  { label: "Show the scam", send: "Run the callback scenario" },
+  { label: "Run detention", send: "Run the detention scenario" },
 ];
 
 /** Colour per agent id, matching the live trace so the same agent reads the same
@@ -276,9 +278,15 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
       <div className="shrink-0 border-t border-border">
         <div className="flex flex-wrap gap-1.5 px-3 pt-2.5 sm:px-4">
           {SUGGESTIONS.map((s) => (
-            <Button key={s} variant="outline" size="sm" disabled={busy}
-              onClick={() => send(s)} className="h-11 rounded-full text-[11.5px]">
-              {s}
+            <Button
+              key={s.label}
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => send(s.send)}
+              className="h-9 rounded-full border-border/70 px-3 text-[12px] font-medium text-foreground/80 hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
+            >
+              {s.label}
             </Button>
           ))}
         </div>

@@ -185,6 +185,41 @@ async def money():
     }
 
 
+
+@router.post("/mail")
+async def mail_send(body: dict = Body(...)):
+    """A driver sending the broker something specific, by hand. Payday files
+    paperwork on its own as a run moves; this is for the moments a driver needs
+    to say a particular thing and have it actually go out."""
+    subject, text = _need(body, "subject", "body")
+    posting_id = body.get("posting_id") or ""
+    kind = body.get("kind") or "outbound"
+
+    broker_email = None
+    if posting_id:
+        from .tools.loadboards import adapter
+        tenant_doc = await bank.get("settings", "tenant") or {}
+        for p in await adapter().search((tenant_doc.get("truck") or {}).get("city", "")):
+            if p["id"] == posting_id:
+                broker = await bank.get("brokers", p["mc"]) or {}
+                broker_email = broker.get("email")
+                break
+    # No posting in hand still has to reach someone: fall back to the seeded
+    # broker on the demo board rather than silently sending nowhere.
+    if not broker_email:
+        brokers = await bank.all("brokers")
+        broker_email = next((b.get("email") for b in brokers if b.get("email")), None)
+    if not broker_email:
+        raise HTTPException(400, "no broker on file to send to")
+
+    from .tools import mail as mail_tool
+    run_id = runs.new_run_id()
+    res = await mail_tool.send(run_id, to=broker_email, subject=subject,
+                               body=text, kind=kind)
+    return {"run_id": run_id, "to": broker_email, "backend": res.backend,
+            "detail": res.detail}
+
+
 @router.get("/registry")
 async def registry():
     return {"agents": cards()}

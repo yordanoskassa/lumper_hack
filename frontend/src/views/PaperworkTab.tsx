@@ -51,8 +51,9 @@ export function PaperworkTab() {
   }
 
   return (
-    <RunShell>
+    <RunShell map={false}>
       {body}
+      <SendToBroker />
       <Separator className="mt-7 mb-6" />
       <Evidence screen={screen} />
     </RunShell>
@@ -496,6 +497,97 @@ function Blocked({ q }: { q: QuarantineItem }) {
           <p className="mt-3 text-[12px] leading-relaxed text-warn">
             Caught before any agent read it. Nothing in this document changed a verdict or a payment.
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Send something to the broker, on purpose. Payday files paperwork on its own
+ *  as the run moves, but a driver sometimes needs to say a specific thing —
+ *  "I'm sitting here", "here's the signed bill", "I want this load" — and it
+ *  should go out as a real message from the fleet, not a note to self. */
+function SendToBroker() {
+  const { picked } = useRun();
+  const KINDS = [
+    { key: "interest", label: "I want this load", icon: Truck,
+      subject: (id: string) => `Interest in ${id}`,
+      body: "We want this load. Truck 12, M. Alvarez, dry van, empty and ready. Confirm and we'll send the rate confirmation." },
+    { key: "detention", label: "I'm sitting in detention", icon: Clock,
+      subject: (id: string) => `Detention starting — ${id}`,
+      body: "The truck is on your property and the free window has closed. The clock is running and the arrival time is GPS-stamped. This is notice." },
+    { key: "pod", label: "Here's the signed bill", icon: FileCheck,
+      subject: (id: string) => `POD attached — ${id}`,
+      body: "Delivered. Signed bill of lading attached, with the GPS position it was photographed at. Please release payment." },
+  ] as const;
+
+  const [kind, setKind] = useState<(typeof KINDS)[number]["key"]>("interest");
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<{ ok: boolean; detail: string } | null>(null);
+  const chosen = KINDS.find((k) => k.key === kind)!;
+  const loadId = picked?.id ?? "P-90412";
+
+  async function send() {
+    setSending(true); setSent(null);
+    try {
+      const r = await fetch(API_BASE + "/api/mail", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind, posting_id: loadId,
+          subject: chosen.subject(loadId),
+          body: note.trim() ? `${chosen.body}\n\n${note.trim()}` : chosen.body,
+        }),
+      });
+      const j = await r.json();
+      setSent({ ok: r.ok && j.backend === "live", detail: j.detail ?? j.detail ?? "" });
+    } catch (e: any) {
+      setSent({ ok: false, detail: String(e.message ?? e) });
+    } finally { setSending(false); }
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-border bg-card p-4">
+      <div className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+        Send to the broker
+      </div>
+      <p className="mt-1 text-[12px] text-muted-foreground">
+        Goes out through the fleet's own mail, on {loadId}.
+      </p>
+
+      <div className="mt-3 flex flex-col gap-1.5">
+        {KINDS.map((k) => (
+          <button
+            key={k.key}
+            onClick={() => setKind(k.key)}
+            className={cn(
+              "flex min-h-11 items-center gap-2.5 rounded-xl border px-3 text-left text-[13px] transition-colors",
+              kind === k.key ? "border-primary/50 bg-primary/10 text-foreground" : "border-border hover:bg-muted/40",
+            )}
+          >
+            <k.icon className={cn("size-4 shrink-0", kind === k.key ? "text-primary" : "text-muted-foreground")} />
+            {k.label}
+          </button>
+        ))}
+      </div>
+
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Anything to add (optional)"
+        rows={2}
+        className="mt-3 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-[13px] outline-none focus-visible:border-ring"
+      />
+
+      <Button size="cab" className="mt-3" disabled={sending} onClick={send}>
+        <Send className="size-4" />
+        {sending ? "Sending…" : chosen.label}
+      </Button>
+
+      {sent && (
+        <div className={cn("mt-2.5 rounded-lg border px-3 py-2 text-[12px]",
+          sent.ok ? "border-ok/35 bg-ok/10 text-ok" : "border-warn/35 bg-warn/10 text-warn")}>
+          {sent.detail}
         </div>
       )}
     </div>
