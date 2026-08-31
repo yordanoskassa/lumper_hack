@@ -89,13 +89,34 @@ async def fleet():
     fleet screen — not a directory of our own agents."""
     t = await bank.get("settings", "tenant") or {}
     trucks = list(t.get("fleet") or [])
-    det = await bank.get("detention", "active")
-    for tr in trucks:
-        # a truck sitting at a dock with the meter running is the thing a
-        # dispatcher most needs to see from across the room
-        if det and det.get("active") and det.get("truck_id") == tr["id"]:
-            tr["detention"] = {"minutes_on_site": det.get("minutes_on_site"),
-                               "owed": det.get("owed")}
+    # Payday writes the live clock to key "current" — "active" is a key nothing
+    # has ever written, and there is no truck_id on the doc either, so this join
+    # silently never matched. A truck sitting at a dock with the meter running is
+    # the single thing a dispatcher most needs to see from across the room, and
+    # it was invisible here. The real join is the posting: the load the truck is
+    # on IS the load being detained.
+    det = await bank.get("detention", "current")
+    if det and det.get("active"):
+        posting = det.get("posting_id")
+        # The driver's phone belongs to the tenant's truck, so a clock running on
+        # the phone is that truck's clock. Match the posting where a truck is
+        # already carrying it; otherwise it is the driver we are following.
+        own = (t.get("truck") or {}).get("id")
+        target = next((x for x in trucks if (x.get("load") or {}).get("id") == posting), None) \
+            or next((x for x in trucks if x["id"] == own), None)
+        if target:
+            target["status"] = "at dock"
+            target["detention"] = {
+                "posting_id": posting,
+                "minutes_on_site": det.get("minutes_on_site"),
+                "billable_minutes": det.get("billable_minutes"),
+                "owed": det.get("owed"),
+                "status": det.get("status"),
+            }
+            if not target.get("load") and posting:
+                target["load"] = {"id": posting, "dest": det.get("stop"),
+                                  "broker": det.get("broker"), "rate": det.get("rate"),
+                                  "eta_h": 0}
     return {"carrier": t.get("name", "K&M Hauling"), "trucks": trucks}
 
 
@@ -123,12 +144,27 @@ async def money():
 
     rows = [claim_row(c) for c in claims]
     open_claims = [r for r in rows if not r["paid"]]
-    invoices = [
-        {"id": m.get("load_id") or m.get("subject", "")[:24],
-         "to": m.get("to"), "subject": m.get("subject"),
-         "amount": m.get("amount"), "ts": m.get("ts")}
-        for m in out if (m.get("kind") or "").startswith("invoice")
-    ]
+    # Invoices live on the run, not in the mailbox. Filtering the outbox for
+    # kind="invoice" matched nothing — no agent emits that kind (the closest is
+    # "factoring"), so this list could only ever be empty. The run record is the
+    # authoritative one: it carries the amount and how long it has been aging.
+    runs_all = await bank.all("runs")
+    invoices = sorted(
+        ({"id": (r.get("payload") or {}).get("posting_id") or r.get("_key"),
+          "broker": r.get("broker"),
+          "amount": round(float(r.get("invoiced") or 0), 2),
+          "stage": r.get("stage") or "Invoiced",
+          "aging_day": r.get("aging_day"),
+          # The run's stage IS the payment state; a separate `paid` flag was
+          # never written, so an invoice at stage "Paid" was rendering as open.
+          "paid": (r.get("stage") or "").lower() == "paid",
+          "ts": r.get("created")}
+         for r in runs_all if r.get("invoiced")),
+        key=lambda r: -(r.get("ts") or 0),
+    )
+    # Factoring submissions are the paper trail behind them, worth surfacing.
+    packets = [{"id": m.get("load_id"), "subject": m.get("subject"), "ts": m.get("ts")}
+               for m in out if (m.get("kind") or "") == "factoring"]
     aging = sorted(
         ({"broker": b.get("name"), "mc": k,
           "avg_pay_days": b.get("avg_pay_days") or 0,
@@ -143,6 +179,7 @@ async def money():
         "owed_now": round(sum(r["owed"] for r in open_claims), 2),
         "claims": rows,
         "invoices": invoices,
+        "packets": packets,
         "aging": aging,
         "detention_terms": (await bank.get("settings", "tenant") or {}).get("detention", {}),
     }
