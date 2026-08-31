@@ -92,6 +92,9 @@ export interface DriverLoad {
   /** Which board this posting came off, and how stale it is. */
   source?: string | null;
   posted_min?: number | null;
+  /** The posting exactly as the load-board adapter handed it over. The
+   *  card shows its own working from this; nothing is added to it. */
+  raw?: Record<string, unknown>;
   reasons: string[];
 }
 

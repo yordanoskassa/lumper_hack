@@ -1,4 +1,4 @@
-# Sentinel — Sourced Statistics
+# Lumper Backstop — Sourced Statistics
 
 Every number below is traced to a named organization, a year, and a public URL. Figures we could **not** verify against a primary source are marked ⚠️ **UNVERIFIED — do not put on a slide.**
 

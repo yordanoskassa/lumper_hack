@@ -362,6 +362,10 @@ async def loads():
             # Where this posting came from and how stale it is. A load with no
             # provenance is a load you are asked to take on faith.
             "source": p.get("src"), "posted_min": p.get("posted_min"),
+            # The record exactly as the load-board adapter handed it over, so
+            # the card can show its own working. Everything above is derived
+            # from this; nothing is added to it.
+            "raw": {k: v for k, v in p.items() if k not in ("dup_of", "filler")},
             "verdict": verdict, "risk": risk, "blocked": verdict == "BLOCKED",
             "impersonated": bool(g.get("impersonated")),
             "posing_as": g.get("posing_as"),

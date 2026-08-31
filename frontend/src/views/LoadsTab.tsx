@@ -117,6 +117,8 @@ function Hunting() {
 }
 
 function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) => void }) {
+  // Which card is showing its source record. One at a time.
+  const [raw, setRaw] = useState<string | null>(null);
   const good = board.loads.filter((l) => !l.blocked);
   const bad = board.loads.filter((l) => l.blocked);
   return (
@@ -128,7 +130,7 @@ function Loads({ board, onPick }: { board: DriverBoard; onPick: (l: DriverLoad) 
         <p className="mt-1.5 text-sm text-bad">We threw out {bad.length} you should never see.</p>
       )}
       <div className="mt-4 flex flex-col gap-3">
-        {[...good, ...bad].map((l) => <LoadCard key={l.id} l={l} onPick={onPick} />)}
+        {[...good, ...bad].map((l) => <LoadCard key={l.id} l={l} onPick={onPick} raw={raw} setRaw={setRaw} />)}
       </div>
     </>
   );
@@ -142,7 +144,10 @@ const VERDICT = {
   BLOCKED: { label: "BLOCKED", cls: "text-bad bg-bad/15", Icon: X },
 } as const;
 
-function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => void }) {
+function LoadCard({ l, onPick, raw, setRaw }: {
+  l: DriverLoad; onPick: (l: DriverLoad) => void;
+  raw: string | null; setRaw: (id: string | null) => void;
+}) {
   const v = VERDICT[l.blocked ? "BLOCKED" : l.verdict === "REVIEW" ? "REVIEW" : "CLEAR"];
   const tone = l.blocked ? "text-bad" : l.verdict === "REVIEW" ? "text-warn" : "text-ok";
   return (
@@ -174,9 +179,40 @@ function LoadCard({ l, onPick }: { l: DriverLoad; onPick: (l: DriverLoad) => voi
         <span>{postedAgo(l.posted_min)}</span>
         <span>·</span>
         <span className="mono">{l.mc}</span>
+        {l.raw && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setRaw(raw === l.id ? null : l.id); }}
+            className="ml-auto min-h-11 text-[11.5px] text-primary underline-offset-2 hover:underline"
+          >
+            {raw === l.id ? "hide posting" : "see the posting"}
+          </button>
+        )}
       </div>
 
       <div className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
+        {raw === l.id && l.raw && (
+          <div className="mb-2.5 overflow-hidden rounded-lg border border-border bg-background/60">
+            <div className="border-b border-border px-3 py-1.5 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              The posting, as it came off {String(l.raw.src ?? "the board")}
+            </div>
+            <dl className="divide-y divide-border">
+              {Object.entries(l.raw)
+                .filter(([k]) => !k.startsWith("_") && k !== "posted_ts")
+                .map(([k, v]) => (
+                  <div key={k} className="flex gap-3 px-3 py-1">
+                    <dt className="mono w-20 shrink-0 text-[10.5px] text-muted-foreground">{k}</dt>
+                    <dd className="mono min-w-0 flex-1 text-[10.5px] break-words text-foreground/80">
+                      {String(v)}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+            <div className="border-t border-border px-3 py-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
+              <span className="mono">cph</span> and <span className="mono">cem</span> are the
+              contact this posting claims. The check compares them against the federal record.
+            </div>
+          </div>
+        )}
         {l.reasons.slice(0, 2).map((r, i) => (
           <div key={i} className="flex gap-2 text-[13px] text-muted-foreground">
             <v.Icon className={cn("mt-px size-3.5 shrink-0", tone)} />

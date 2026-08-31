@@ -44,7 +44,25 @@ diesel and this lane's history, and kills the ones that do not clear.
 **Say:** *"Three worth taking. Five it threw out."*
 
 **The proof:** every card carries its provenance — `DAT · posted 16m ago ·
-MC-440058`. The load has an origin and an age, not just a price.
+MC-440058` — and **"see the posting"** opens the record exactly as the load-board
+adapter handed it over:
+
+```
+id P-90428 · mc MC-440058 · o Joliet IL · d Indianapolis IN · mi 205 · dh 8
+rate 800 · eq Dry van · src DAT · cph 614-555-0121
+cem book@cardinaldispatch.example.com
+```
+
+**Say:** *"That is the posting, not our summary of it. Everything on the card is
+derived from those fields — nothing is added. And `cph` is the number the
+posting claims; hold onto it, because in a second the federal registry is going
+to disagree."*
+
+This is also where you say the one honest thing: **the load board is the only
+simulated feed in the product.** DAT and Truckstop need signed vendor
+agreements. The adapter is production-shaped and the sandbox replays a seeded
+board — and the trace labels it SANDBOX every single time, rather than dressing
+it up as something it is not.
 
 **The line that lands:** the blocked loads pay the most on the board — $2,450,
 $1,725, $1,450 against $800 for the honest one. **Bait pays best.** That is the

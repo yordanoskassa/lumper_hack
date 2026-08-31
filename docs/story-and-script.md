@@ -1,4 +1,4 @@
-# Sentinel — Story, Character, Script
+# Lumper Backstop — Story, Character, Script
 
 ---
 
@@ -167,6 +167,7 @@ The edit uses a 1:50 passage from the longer track with a clean opening and clos
 - **No voice-over. No narration captions.** The few words on screen are part of the composition.
 - The opening starts empty, and the full film uses no bold type. Let the thin human drawing establish Victor first, then keep that same light Inter Regular voice in every scene.
 - Reveal language one word at a time. Alternate soft-focus, upward drift, and lateral movement.
+- Put expressive motion on the narration sentences. Vary the text treatment by scene—rise, focus, drift, or settle—while supporting cards, numbers, diagrams, and proof elements enter with quiet fades only. The Victor line drawing is the opening exception.
 - Keep each complete sentence one color. Do not scatter colored emphasis across words; reserve color for standalone numbers, statuses, and evidence.
 - Use direct cause-and-effect language. Avoid metaphors that require interpretation.
 - Animate the evidence too: totals count, clocks advance, cards enter, status trails resolve, and refusal states pulse.
@@ -184,5 +185,5 @@ $6,520/mo fixed · $2,840/mo back office · month 9 · 11:47 PM · $4,000 · 540
 
 **One-sentence pitch:**
 > A one-truck carrier cancelled his back office to make the mortgage, and got
-> double-brokered and stiffed on detention because of it. Sentinel is that back
+> double-brokered and stiffed on detention because of it. Lumper Backstop is that back
 > office, rebuilt as four agents that never sleep.
