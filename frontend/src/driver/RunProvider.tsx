@@ -346,14 +346,20 @@ export function Place({ gps, city, big }: { gps: boolean; city?: string; big?: b
 
 /** What a tab says when the run is somewhere else. Never a blank screen: the
  *  driver should always know what the app is waiting on and where to go. */
-export function Empty({ title, body, cta, onCta }: {
+export function Empty({ title, body, cta, onCta, alt, onAlt }: {
   title: string; body: string; cta: string; onCta: () => void;
+  /** A second way out. Every screen that tells a driver they cannot do the
+   *  thing they just asked for needs one, or the only exit is a page reload. */
+  alt?: string; onAlt?: () => void;
 }) {
   return (
     <div className="pt-1">
       <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.03em] lg:text-2xl">{title}</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{body}</p>
       <Button size="cab" className="mt-6" onClick={onCta}>{cta}</Button>
+      {alt && onAlt && (
+        <Button variant="outline" size="cab" className="mt-2.5" onClick={onAlt}>{alt}</Button>
+      )}
     </div>
   );
 }

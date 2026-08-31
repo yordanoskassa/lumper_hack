@@ -8,12 +8,12 @@ import { Empty, RunShell, useRun } from "@/driver/RunProvider";
 /** The run itself: the route, the arrival timestamp, and the clock that turns a
  *  four-hour wait into money. */
 export function TripTab() {
-  const { screen, picked, here, det, hunt, arrive, takePaperwork, setTab } = useRun();
+  const { screen, picked, here, det, hunt, arrive, takePaperwork, setTab, reset } = useRun();
 
   // One branch always wins, so this tab can never render an empty column.
   let body: ReactNode;
   if (picked && screen === "trip") {
-    body = <Trip load={picked} here={here} onArrive={arrive} />;
+    body = <Trip load={picked} here={here} onArrive={arrive} onDrop={reset} />;
   } else if (picked && screen === "dock") {
     body = (
       <>
@@ -50,8 +50,8 @@ export function TripTab() {
   return <RunShell>{body}</RunShell>;
 }
 
-function Trip({ load, here, onArrive }: {
-  load: DriverLoad; here: [number, number]; onArrive: () => void;
+function Trip({ load, here, onArrive, onDrop }: {
+  load: DriverLoad; here: [number, number]; onArrive: () => void; onDrop?: () => void;
 }) {
   const left = Math.round(haversineMi(here, [load.dest_lat, load.dest_lng]) * 1.19);
   return (
@@ -66,6 +66,14 @@ function Trip({ load, here, onArrive }: {
         paid if they make you wait.
       </div>
       <Button size="cab" className="mt-5" onClick={onArrive}>I'm at the dock</Button>
+      {/* Before the clock starts there is no claim to lose, so backing out is
+          free — and a driver who tapped the wrong card should not have to
+          finish someone else's run to escape it. */}
+      {onDrop && (
+        <Button variant="ghost" size="tap" className="mt-2 w-full" onClick={onDrop}>
+          Not taking this one
+        </Button>
+      )}
     </>
   );
 }

@@ -20,7 +20,7 @@ function postedAgo(min?: number | null): string {
 export function LoadsTab() {
   const {
     screen, board, verifying, scan, gps, truck, onTrip, picked,
-    hunt, openScan, finishVerify, setTab,
+    hunt, openScan, finishVerify, setTab, reset,
   } = useRun();
 
   // The background check is a takeover, not a screen swap: the board stays
@@ -67,6 +67,11 @@ export function LoadsTab() {
           }
           cta={screen === "pod" || screen === "paid" ? "Back to the paperwork" : "Back to my run"}
           onCta={() => setTab(screen === "pod" || screen === "paid" ? "paperwork" : "trip")}
+          // Tapping the wrong load used to commit you to the entire flow. A
+          // driver who changes their mind needs a way back to the board that
+          // is not "reload the page".
+          alt="Drop it and find another"
+          onAlt={reset}
         />
       )}
     </RunShell>
