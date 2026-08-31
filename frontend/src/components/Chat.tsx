@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BackendTag } from "@/components/BackendTag";
+import { useRun } from "@/driver/RunProvider";
+import { DetentionChatCard, LoadsCard, PaidCard, VerifyCard } from "@/components/ChatCards";
 
 export interface Msg {
   role: string;
@@ -12,19 +14,24 @@ export interface Msg {
   /** Set on an assistant turn so its agents' work can be shown underneath it. */
   runId?: string;
   pending?: boolean;
+  /** Dispatch answers with the thing itself, not a description of it. The card
+   *  reads from the live run, so it keeps updating in the thread as the agents
+   *  work — the board, the federal record, the clock, the money. */
+  card?: "loads" | "verify" | "run" | "paid";
 }
 
 export const CHAT_GREETING: Msg = {
   role: "assistant",
   text:
-    "I'm Dispatch. I run the fleet — Finder prices the loads, Verifier pulls the " +
-    "federal record on the broker, Closer negotiates, Payday chases the money. " +
-    "Tell me what to do, or name any real MC number and I'll check it.",
+    "I'm Dispatch. Ask me to find you a load and I'll put the board right here — " +
+    "Finder prices them, Verifier pulls the federal record on every broker, Closer " +
+    "runs the trip, Payday works the clock at the dock and gets you paid. You can " +
+    "do the whole run from this thread. Or name any real MC number and I'll check it.",
 };
 
 const SUGGESTIONS = [
-  "Scan the board",
-  "Check broker MC-1680087",
+  "Find me a load",
+  "Check broker MC-133655",
   "Run the callback scenario",
   "Run the detention scenario",
 ];
@@ -114,6 +121,28 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
   const [busy, setBusy] = useState(false);
   const [liveRun, setLiveRun] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const run = useRun();
+
+  // The driver's own flow is Dispatch's to run, not a page they have to go and
+  // find. When the run moves, the thread follows it with the matching card.
+  const stage = run.screen;
+  useEffect(() => {
+    const want: Record<string, Msg["card"]> = {
+      loads: "loads", verify: "verify", trip: "run", dock: "run", paid: "paid",
+    };
+    const card = want[stage];
+    if (!card) return;
+    setLocal((m) => {
+      if (m.some((x) => x.card === card)) return m;
+      const say: Record<string, string> = {
+        loads: "Here is the board. I priced every posting and screened every broker — tap one and Verifier pulls its federal record.",
+        verify: "Handing it to Verifier.",
+        run: "Booked. Closer has the trip; Payday takes it from the dock.",
+        paid: "Paid, and the detention went with it.",
+      };
+      return [...m, { role: "assistant", text: say[stage] ?? "", card }];
+    });
+  }, [stage, setLocal]);
 
   const merged = mergeChat(local, chatFeed);
 
@@ -139,6 +168,14 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
     setInput("");
     setBusy(true);
     setLocal((m) => [...m, { role: "user", text }]);
+
+    // A driver asking for a load should get loads, not a paragraph about loads.
+    if (/find me a load|find a load|need a load|got anything/i.test(text)) {
+      setBusy(false);
+      await run.hunt();
+      return;
+    }
+
     try {
       const r = await api.chat(text);
       setLiveRun(r.run_id ?? null);
@@ -181,6 +218,14 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
               )}>
                 {m.text}
               </div>
+              {m.role !== "user" && m.card && (
+                <div className="w-full max-w-[92%]">
+                  {m.card === "loads" && <LoadsCard />}
+                  {m.card === "verify" && <VerifyCard />}
+                  {m.card === "run" && <DetentionChatCard />}
+                  {m.card === "paid" && <PaidCard />}
+                </div>
+              )}
               {m.role !== "user" && m.runId && (
                 <div className="w-full max-w-[92%]">
                   <AgentWork events={byRun.get(m.runId) ?? []} live={liveRun === m.runId} />
