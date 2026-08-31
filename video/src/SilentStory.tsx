@@ -39,7 +39,7 @@ const TIMELINE = [
   { from: 64, duration: 8, component: Impact },
   { from: 72, duration: 10, component: FourAgents },
   { from: 82, duration: 20, component: Product },
-  { from: 102, duration: 8, component: Close },
+  { from: 102, duration: 12, component: Close },
 ] as const;
 
 const appear = (frame: number, start = 0, duration = 18) => ({
@@ -47,11 +47,7 @@ const appear = (frame: number, start = 0, duration = 18) => ({
     ...clamp,
     easing: ease,
   }),
-  translate: `0 ${interpolate(frame, [start, start + duration], [24, 0], { ...clamp, easing: ease })}px`,
 });
-
-const money = (value: number) =>
-  `$${Math.round(value).toLocaleString("en-US")}`;
 
 const WordReveal = ({
   text,
@@ -59,6 +55,7 @@ const WordReveal = ({
   step = 10,
   fontSize = 72,
   color,
+  motion = "rise",
   align = "left",
   lineHeight = 1.05,
   fontWeight = 400,
@@ -69,6 +66,7 @@ const WordReveal = ({
   step?: number;
   fontSize?: number;
   color?: string;
+  motion?: "rise" | "focus" | "drift" | "settle";
   align?: "left" | "center";
   lineHeight?: number;
   fontWeight?: number;
@@ -99,12 +97,12 @@ const WordReveal = ({
                 ...clamp,
                 easing: ease,
               }),
-              filter: `blur(${interpolate(frame, [at, at + 24], [mode === 1 ? 13 : 8, 0], { ...clamp, easing: ease })}px)`,
-              translate: `${interpolate(frame, [at, at + 24], [mode === 2 ? 24 : mode === 1 ? -16 : 0, 0], { ...clamp, easing: ease })}px ${interpolate(frame, [at, at + 24], [mode === 0 ? 30 : 12, 0], { ...clamp, easing: ease })}px`,
+              filter: `blur(${interpolate(frame, [at, at + 24], [motion === "focus" ? 14 : motion === "settle" ? 5 : 2, 0], { ...clamp, easing: ease })}px)`,
+              translate: `${interpolate(frame, [at, at + 24], [motion === "drift" ? (mode % 2 === 0 ? -32 : 32) : 0, 0], { ...clamp, easing: ease })}px ${interpolate(frame, [at, at + 24], [motion === "rise" ? 30 : motion === "settle" ? 12 : 0, 0], { ...clamp, easing: ease })}px`,
               scale: interpolate(
                 frame,
                 [at, at + 24],
-                [mode === 1 ? 1.08 : 0.96, 1],
+                [motion === "settle" ? 1.08 : motion === "focus" ? 0.96 : 1, 1],
                 { ...clamp, easing: ease },
               ),
             }}
@@ -177,7 +175,6 @@ const Shell = ({
   children: React.ReactNode;
   dark?: boolean;
 }) => {
-  const frame = useCurrentFrame();
   return (
     <AbsoluteFill
       style={{
@@ -196,8 +193,6 @@ const Shell = ({
           top: -410,
           background: dark ? "rgba(234,88,12,.08)" : "rgba(234,88,12,.035)",
           filter: "blur(90px)",
-          translate: `${interpolate(frame, [0, 600], [-70, 190], clamp)}px ${interpolate(frame, [0, 600], [20, 100], clamp)}px`,
-          scale: interpolate(frame, [0, 300, 600], [0.94, 1.06, 0.98], clamp),
         }}
       />
       {children}
@@ -350,6 +345,7 @@ function ColdOpen() {
           start={110}
           step={11}
           fontSize={56}
+          motion="focus"
           fontWeight={400}
           letterSpacing="-.025em"
           lineHeight={1.18}
@@ -368,7 +364,7 @@ function Pressure() {
     ["Insurance", "$1,180"],
     ["Home costs", "$520"],
   ];
-  const total = money(interpolate(frame, [70, 250], [0, 6520], clamp));
+  const total = "$6,520";
   return (
     <Shell>
       <div
@@ -397,6 +393,7 @@ function Pressure() {
             start={8}
             step={12}
             fontSize={83}
+            motion="rise"
           />
         </div>
         <div
@@ -406,7 +403,6 @@ function Pressure() {
             gap: 22,
             marginTop: 40,
             opacity: interpolate(frame, [112, 142], [0, 1], clamp),
-            translate: `0 ${interpolate(frame, [112, 142], [18, 0], clamp)}px`,
           }}
         >
           <div
@@ -418,10 +414,6 @@ function Pressure() {
               overflow: "hidden",
               display: "grid",
               placeItems: "center",
-              scale: interpolate(frame, [112, 142], [0.82, 1], {
-                ...clamp,
-                easing: ease,
-              }),
             }}
           >
             <Victor />
@@ -475,7 +467,6 @@ function Pressure() {
                   [0, 1],
                   clamp,
                 ),
-                translate: `${interpolate(frame, [22 + i * 14, 40 + i * 14], [36, 0], clamp)}px 0`,
               }}
             >
               <span style={{ fontSize: 30, color: C.body }}>{k}</span>
@@ -498,7 +489,6 @@ function Pressure() {
             alignItems: "baseline",
             padding: "27px 38px 33px",
             background: C.orangeTint,
-            boxShadow: `inset ${interpolate(frame, [72, 240], [0, 800], clamp)}px 0 rgba(234,88,12,.055)`,
           }}
         >
           <span style={{ fontSize: 27, fontWeight: 400, color: C.orangeDark }}>
@@ -551,6 +541,7 @@ function BackOffice() {
               start={8}
               step={11}
               fontSize={72}
+              motion="drift"
             />
           </div>
           <div
@@ -575,7 +566,6 @@ function BackOffice() {
                     [0, 1],
                     clamp,
                   ),
-                  translate: `${interpolate(frame, [82 + i * 18, 103 + i * 18], [-22, 0], clamp)}px 0`,
                 }}
               >
                 {line}
@@ -608,7 +598,6 @@ function BackOffice() {
                   [0, 1],
                   clamp,
                 ),
-                translate: `${interpolate(frame, [35 + i * 18, 55 + i * 18], [30, 0], clamp)}px 0`,
               }}
             >
               <span style={{ fontSize: 29, color: C.body }}>{k}</span>
@@ -647,13 +636,7 @@ function BackOffice() {
                 fontFamily: GEIST_MONO,
                 fontSize: 35,
                 fontWeight: 400,
-                rotate: `${interpolate(frame, [180, 218], [-18, -7], clamp)}deg`,
-                scale: interpolate(
-                  frame,
-                  [180, 205, 225],
-                  [1.28, 0.96, 1],
-                  clamp,
-                ),
+                rotate: "-7deg",
                 background: "rgba(255,255,255,.92)",
               }}
             >
@@ -668,6 +651,7 @@ function BackOffice() {
           start={214}
           step={6}
           fontSize={47}
+          motion="settle"
           align="center"
         />
       </div>
@@ -691,9 +675,29 @@ function Fraud() {
           fontFamily: GEIST_MONO,
           fontSize: 23,
           color: C.muted,
+          zIndex: 10,
         }}
       >
         MARCH · TOLEDO → CHARLOTTE
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 105,
+          top: 72,
+          padding: "11px 16px",
+          borderRadius: 999,
+          border: "1px solid #FECACA",
+          background: C.redTint,
+          color: C.red,
+          fontFamily: GEIST_MONO,
+          fontSize: 22,
+          letterSpacing: ".045em",
+          zIndex: 10,
+          opacity: interpolate(frame, [14, 34], [0, 1], clamp),
+        }}
+      >
+        DOUBLE-BROKERING SCAM
       </div>
       {phase === 0 && (
         <div
@@ -711,10 +715,11 @@ function Fraud() {
         >
           <div>
             <WordReveal
-              text="The broker's MC number was real."
+              text="The MC number was real. The broker was fake."
               start={4}
-              step={12}
-              fontSize={74}
+              step={8}
+              fontSize={70}
+              motion="focus"
             />
             <div
               style={{
@@ -740,7 +745,6 @@ function Fraud() {
                         [0, 1],
                         clamp,
                       ),
-                      translate: `0 ${interpolate(frame, [82 + i * 15, 99 + i * 15], [15, 0], clamp)}px`,
                     }}
                   >
                     {word}
@@ -757,8 +761,6 @@ function Fraud() {
               overflow: "hidden",
               boxShadow: "0 24px 70px rgba(10,10,10,.08)",
               opacity: interpolate(frame, [18, 42], [0, 1], clamp),
-              translate: `${interpolate(frame, [18, 42], [60, 0], clamp)}px 0`,
-              scale: interpolate(frame, [18, 42], [0.97, 1], clamp),
             }}
           >
             <div
@@ -781,10 +783,9 @@ function Fraud() {
                   borderRadius: 8,
                   padding: "8px 12px",
                   fontSize: 21,
-                  boxShadow: `0 0 ${interpolate(frame, [35, 95], [0, 24], clamp)}px rgba(22,163,74,.25)`,
                 }}
               >
-                MC VERIFIED ✓
+                MC RECORD REAL ✓
               </span>
             </div>
             <div style={{ padding: 34 }}>
@@ -808,13 +809,27 @@ function Fraud() {
                       [0, 1],
                       clamp,
                     ),
-                    translate: `${interpolate(frame, [45 + i * 12, 61 + i * 12], [22, 0], clamp)}px 0`,
                   }}
                 >
                   <span style={{ color: C.sub }}>{k}</span>
                   <span style={{ fontFamily: GEIST_MONO }}>{v}</span>
                 </div>
               ))}
+            </div>
+            <div
+              style={{
+                padding: "20px 34px",
+                borderTop: "1px solid #FECACA",
+                background: C.redTint,
+                color: C.red,
+                fontFamily: GEIST_MONO,
+                fontSize: 24,
+                textAlign: "center",
+                letterSpacing: ".035em",
+                opacity: interpolate(frame, [105, 130], [0, 1], clamp),
+              }}
+            >
+              REAL MC · STOLEN IDENTITY
             </div>
           </div>
         </div>
@@ -850,13 +865,6 @@ function Fraud() {
                     phaseFrame,
                     [i * 24, i * 24 + 18],
                     [0, 1],
-                    clamp,
-                  ),
-                  translate: `0 ${interpolate(phaseFrame, [i * 24, i * 24 + 18], [45, 0], clamp)}px`,
-                  scale: interpolate(
-                    phaseFrame,
-                    [i * 24, i * 24 + 18],
-                    [0.93, 1],
                     clamp,
                   ),
                   boxShadow:
@@ -910,7 +918,6 @@ function Fraud() {
                   style={{
                     fontSize: 48,
                     color: C.border,
-                    translate: `${interpolate(phaseFrame, [i * 24 + 16, i * 24 + 42], [-15, 8], clamp)}px 0`,
                     opacity: interpolate(
                       phaseFrame,
                       [i * 24 + 15, i * 24 + 32],
@@ -957,14 +964,9 @@ function Fraud() {
                 lineHeight: 0.95,
                 marginTop: 18,
                 opacity: interpolate(phaseFrame, [8, 28], [0, 1], clamp),
-                scale: interpolate(phaseFrame, [8, 42], [1.22, 1], {
-                  ...clamp,
-                  easing: ease,
-                }),
-                filter: `blur(${interpolate(phaseFrame, [8, 30], [12, 0], clamp)}px)`,
               }}
             >
-              −{money(interpolate(phaseFrame, [8, 70], [0, 4000], clamp))}
+              −$4,000
             </div>
             <div style={{ marginTop: 34 }}>
               <WordReveal
@@ -972,6 +974,7 @@ function Fraud() {
                 start={sec(12) + 38}
                 step={6}
                 fontSize={35}
+                motion="rise"
                 align="center"
               />
             </div>
@@ -994,10 +997,11 @@ function Fraud() {
         >
           <div>
             <WordReveal
-              text="The phone number did not match the broker."
+              text="The phone number exposed the double-brokering scam."
               start={sec(16) + 3}
-              step={8}
-              fontSize={66}
+              step={7}
+              fontSize={62}
+              motion="drift"
             />
           </div>
           <div
@@ -1008,12 +1012,12 @@ function Fraud() {
               padding: 38,
               boxShadow: "0 24px 70px rgba(10,10,10,.08)",
               opacity: interpolate(phaseFrame, [10, 32], [0, 1], clamp),
-              translate: `${interpolate(phaseFrame, [10, 32], [55, 0], clamp)}px 0`,
             }}
           >
             {[
               ["Broker authority", "REAL ✓", C.green],
               ["Posted phone number", "NO MATCH ✕", C.red],
+              ["Broker identity", "STOLEN ✕", C.red],
             ].map(([k, v, tone], i) => (
               <div
                 key={k}
@@ -1021,15 +1025,14 @@ function Fraud() {
                   display: "flex",
                   justifyContent: "space-between",
                   padding: "23px 0",
-                  borderBottom: i === 0 ? `1px solid ${C.hair}` : "none",
+                  borderBottom: i < 2 ? `1px solid ${C.hair}` : "none",
                   fontSize: 32,
                   opacity: interpolate(
                     phaseFrame,
-                    [28 + i * 35, 48 + i * 35],
+                    [28 + i * 24, 48 + i * 24],
                     [0, 1],
                     clamp,
                   ),
-                  translate: `${interpolate(phaseFrame, [28 + i * 35, 48 + i * 35], [28, 0], clamp)}px 0`,
                 }}
               >
                 <span>{k}</span>
@@ -1045,10 +1048,6 @@ function Fraud() {
 
 function Detention() {
   const frame = useCurrentFrame();
-  const clock = interpolate(frame, [20, 220], [6.67, 13.25], clamp);
-  const h = Math.floor(clock);
-  const m = Math.round((clock - h) * 60);
-  const owed = Math.round(interpolate(frame, [80, 230], [0, 292], clamp));
   return (
     <Shell dark>
       <div
@@ -1086,7 +1085,6 @@ function Detention() {
         <div
           style={{
             opacity: interpolate(frame, [4, 28], [0, 1], clamp),
-            translate: `${interpolate(frame, [4, 28], [-45, 0], clamp)}px 0`,
           }}
         >
           <div
@@ -1098,7 +1096,7 @@ function Detention() {
               textShadow: `0 0 ${interpolate(frame, [20, 220], [0, 32], clamp)}px rgba(249,115,22,.18)`,
             }}
           >
-            {String(h).padStart(2, "0")}:{String(m).padStart(2, "0")}
+            06:40 → 13:15
           </div>
           <div style={{ fontSize: 33, color: "#C2C2BE", marginTop: 15 }}>
             Arrived 06:40 · Loaded 13:15
@@ -1114,10 +1112,11 @@ function Detention() {
           >
             <div
               style={{
-                width: `${interpolate(frame, [20, 220], [0, 100], clamp)}%`,
+                width: "100%",
                 height: "100%",
                 background: C.orange,
                 boxShadow: "0 0 22px rgba(249,115,22,.55)",
+                opacity: interpolate(frame, [20, 45], [0, 1], clamp),
               }}
             />
           </div>
@@ -1142,7 +1141,6 @@ function Detention() {
             borderRadius: 20,
             padding: 38,
             opacity: interpolate(frame, [35, 62], [0, 1], clamp),
-            translate: `${interpolate(frame, [35, 62], [55, 0], clamp)}px 0`,
           }}
         >
           <div style={{ fontFamily: GEIST_MONO, fontSize: 24, color: C.muted }}>
@@ -1157,7 +1155,7 @@ function Detention() {
               marginTop: 18,
             }}
           >
-            ${owed}
+            $292
           </div>
           <div
             style={{
@@ -1171,13 +1169,6 @@ function Detention() {
               fontWeight: 400,
               marginTop: 24,
               opacity: interpolate(frame, [240, 275], [0, 1], clamp),
-              scale: interpolate(
-                frame,
-                [240, 265, 285],
-                [1.14, 0.97, 1],
-                clamp,
-              ),
-              rotate: `${interpolate(frame, [240, 285], [-5, 0], clamp)}deg`,
             }}
           >
             CLAIM DENIED
@@ -1213,14 +1204,9 @@ function Impact() {
               letterSpacing: "-.08em",
               color: C.red,
               opacity: interpolate(frame, [18, 54], [0, 1], clamp),
-              scale: interpolate(frame, [18, 58], [1.2, 1], {
-                ...clamp,
-                easing: ease,
-              }),
-              filter: `blur(${interpolate(frame, [18, 50], [16, 0], clamp)}px)`,
             }}
           >
-            −{money(interpolate(frame, [18, 95], [0, 4292], clamp))}
+            −$4,292
           </div>
           <div style={{ marginTop: 35 }}>
             <WordReveal
@@ -1228,6 +1214,7 @@ function Impact() {
               start={72}
               step={16}
               fontSize={67}
+              motion="settle"
               align="center"
             />
           </div>
@@ -1259,6 +1246,7 @@ function FourAgents() {
           start={2}
           step={10}
           fontSize={64}
+          motion="focus"
           align="center"
         />
       </div>
@@ -1280,11 +1268,10 @@ function FourAgents() {
             fill="none"
             stroke={i === 1 ? C.orange : C.border}
             strokeWidth={i === 1 ? 3 : 2}
-            strokeDasharray="520"
-            strokeDashoffset={interpolate(
+            opacity={interpolate(
               frame,
-              [58 + i * 38, 138 + i * 38],
-              [520, 0],
+              [58 + i * 38, 82 + i * 38],
+              [0, 1],
               clamp,
             )}
           />
@@ -1301,7 +1288,6 @@ function FourAgents() {
           borderLeft: `5px solid ${C.orange}`,
           background: "rgba(255,255,255,.72)",
           opacity: interpolate(frame, [36, 64], [0, 1], clamp),
-          translate: `${interpolate(frame, [36, 70], [-120, 0], clamp)}px 0`,
         }}
       >
         <div style={{ fontFamily: GEIST_MONO, color: C.orange }}>
@@ -1319,8 +1305,7 @@ function FourAgents() {
             fill="none"
             stroke={C.ink}
             strokeWidth="3"
-            strokeDasharray="500"
-            strokeDashoffset={interpolate(frame, [70, 145], [500, 0], clamp)}
+            opacity={interpolate(frame, [70, 96], [0, 1], clamp)}
           />
           <circle cx="12" cy="69" r="7" fill={C.orange} />
           <circle cx="395" cy="20" r="7" fill={C.orange} />
@@ -1341,12 +1326,7 @@ function FourAgents() {
           placeItems: "center",
           textAlign: "center",
           opacity: interpolate(frame, [78, 106], [0, 1], clamp),
-          scale: interpolate(frame, [78, 116], [0.62, 1], {
-            ...clamp,
-            easing: ease,
-          }),
-          rotate: `${interpolate(frame, [78, 116], [-9, 0], clamp)}deg`,
-          boxShadow: `0 0 ${interpolate(frame, [95, 180], [0, 55], clamp)}px rgba(220,38,38,.11)`,
+          boxShadow: "0 0 35px rgba(220,38,38,.11)",
         }}
       >
         <div>
@@ -1376,7 +1356,6 @@ function FourAgents() {
           top: 270,
           width: 430,
           opacity: interpolate(frame, [116, 145], [0, 1], clamp),
-          translate: `0 ${interpolate(frame, [116, 150], [-75, 0], clamp)}px`,
         }}
       >
         <div style={{ fontFamily: GEIST_MONO, color: C.green }}>
@@ -1405,7 +1384,6 @@ function FourAgents() {
                   [0, 1],
                   clamp,
                 ),
-                translate: `${interpolate(frame, [145 + i * 24, 168 + i * 24], [i % 2 ? 42 : -42, 0], clamp)}px 0`,
               }}
             >
               {text}
@@ -1426,7 +1404,6 @@ function FourAgents() {
           color: C.paper,
           clipPath: "polygon(0 0,100% 0,100% 88%,92% 100%,0 100%)",
           opacity: interpolate(frame, [160, 190], [0, 1], clamp),
-          translate: `0 ${interpolate(frame, [160, 198], [110, 0], clamp)}px`,
         }}
       >
         <div style={{ fontFamily: GEIST_MONO, color: C.orange }}>
@@ -1464,6 +1441,116 @@ function FourAgents() {
 const productFade = (local: number) =>
   interpolate(local, [0, 14, 136, 150], [0, 1, 1, 0], clamp);
 
+function SourceProof({
+  local,
+  start,
+  logo,
+  logoWidth = 70,
+  logoHeight = 58,
+  logoOnDark = false,
+  label,
+  proof,
+  style,
+}: {
+  local: number;
+  start: number;
+  logo?: string;
+  logoWidth?: number;
+  logoHeight?: number;
+  logoOnDark?: boolean;
+  label: string;
+  proof: string;
+  style: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        display: "flex",
+        alignItems: "center",
+        gap: 18,
+        minHeight: 82,
+        padding: "14px 18px",
+        borderRadius: 18,
+        border: `1px solid ${C.border}`,
+        background: C.white,
+        boxShadow: "0 12px 36px rgba(23,23,20,.07)",
+        color: C.ink,
+        opacity: interpolate(local, [start, start + 22], [0, 1], {
+          ...clamp,
+          easing: ease,
+        }),
+        ...style,
+      }}
+    >
+      {logo ? (
+        <div
+          style={{
+            flex: "0 0 auto",
+            width: logoWidth + 18,
+            height: logoHeight + 14,
+            borderRadius: 13,
+            display: "grid",
+            placeItems: "center",
+            background: logoOnDark ? C.dark : C.white,
+          }}
+        >
+          <Img
+            src={staticFile(logo)}
+            style={{
+              width: logoWidth,
+              height: logoHeight,
+              objectFit: "contain",
+              color: logoOnDark ? C.paper : C.ink,
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          style={{
+            flex: "0 0 auto",
+            width: 76,
+            height: 62,
+            borderRadius: 13,
+            display: "grid",
+            placeItems: "center",
+            background: C.dark,
+            color: C.paper,
+            fontFamily: GEIST_MONO,
+            fontSize: 22,
+          }}
+        >
+          EIA
+        </div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontFamily: GEIST_MONO,
+            fontSize: 16,
+            color: C.green,
+            letterSpacing: ".035em",
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            marginTop: 6,
+            fontFamily: GEIST_MONO,
+            fontSize: 15,
+            lineHeight: 1.35,
+            color: C.body,
+            whiteSpace: "pre-line",
+          }}
+        >
+          {proof}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FinderDemo({ local }: { local: number }) {
   return (
     <AbsoluteFill style={{ opacity: productFade(local) }}>
@@ -1479,17 +1566,35 @@ function FinderDemo({ local }: { local: number }) {
       >
         01 · FINDER
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 105,
-          top: 118,
-          fontSize: 68,
-          letterSpacing: "-.05em",
-        }}
-      >
-        Find the load that pays.
+      <div style={{ position: "absolute", left: 105, top: 118 }}>
+        <WordReveal
+          text="Find the load that pays."
+          start={4}
+          step={7}
+          fontSize={68}
+          motion="rise"
+        />
       </div>
+      <SourceProof
+        local={local}
+        start={18}
+        logo="integrations/gemini-spark.png"
+        logoWidth={58}
+        logoHeight={58}
+        label="GEMINI · LIVE"
+        proof="0.79s · PONG"
+        style={{ right: 105, top: 62, width: 410 }}
+      />
+      <SourceProof
+        local={local}
+        start={42}
+        logo="integrations/google-maps.svg"
+        logoWidth={147}
+        logoHeight={27}
+        label="ROUTES · LIVE"
+        proof="Joliet → Columbus · 364.5 mi · 0.28s"
+        style={{ right: 105, top: 190, width: 480 }}
+      />
       <svg
         width="1210"
         height="570"
@@ -1509,8 +1614,7 @@ function FinderDemo({ local }: { local: number }) {
           stroke={C.orange}
           strokeWidth="6"
           strokeLinecap="round"
-          strokeDasharray="1500"
-          strokeDashoffset={interpolate(local, [12, 100], [1500, 0], clamp)}
+          opacity={interpolate(local, [24, 48], [0, 1], clamp)}
         />
         <circle cx="70" cy="390" r="13" fill={C.ink} />
         <circle cx="1125" cy="130" r="13" fill={C.orange} />
@@ -1539,12 +1643,6 @@ function FinderDemo({ local }: { local: number }) {
               [0, 1],
               clamp,
             ),
-            scale: interpolate(
-              local,
-              [35 + i * 24, 60 + i * 24],
-              [0.74, 1],
-              clamp,
-            ),
           }}
         >
           {load.rate}
@@ -1562,7 +1660,6 @@ function FinderDemo({ local }: { local: number }) {
             letterSpacing: "-.08em",
             marginTop: 24,
             opacity: interpolate(local, [65, 94], [0, 1], clamp),
-            translate: `${interpolate(local, [65, 96], [55, 0], clamp)}px 0`,
           }}
         >
           $2.34
@@ -1575,7 +1672,8 @@ function FinderDemo({ local }: { local: number }) {
             style={{
               height: "100%",
               background: C.orange,
-              width: `${interpolate(local, [85, 126], [0, 100], clamp)}%`,
+              width: "100%",
+              opacity: interpolate(local, [85, 105], [0, 1], clamp),
             }}
           />
         </div>
@@ -1591,6 +1689,23 @@ function FinderDemo({ local }: { local: number }) {
           PROFIT FLOOR PASSED
         </div>
       </div>
+      <SourceProof
+        local={local}
+        start={88}
+        logo="integrations/nws.png"
+        logoWidth={58}
+        logoHeight={58}
+        label="NWS WEATHER · LIVE"
+        proof="No route alerts · 0.64s"
+        style={{ right: 590, bottom: 62, width: 400 }}
+      />
+      <SourceProof
+        local={local}
+        start={108}
+        label="DIESEL · CACHED"
+        proof="EIA_API_KEY not set"
+        style={{ right: 105, bottom: 62, width: 390 }}
+      />
     </AbsoluteFill>
   );
 }
@@ -1616,17 +1731,35 @@ function VerifierDemo({ local }: { local: number }) {
       >
         02 · VERIFIER
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 105,
-          top: 118,
-          fontSize: 68,
-          letterSpacing: "-.05em",
-        }}
-      >
-        Check the person behind the MC.
+      <div style={{ position: "absolute", left: 105, top: 118 }}>
+        <WordReveal
+          text="Check the person behind the MC."
+          start={154}
+          step={6}
+          fontSize={68}
+          motion="focus"
+        />
       </div>
+      <SourceProof
+        local={local}
+        start={20}
+        logo="integrations/fmcsa.png"
+        logoWidth={82}
+        logoHeight={82}
+        label="SAFER FEDERAL · LIVE"
+        proof={"A.N. Webber · authority active · 0.33s\nQCMobile · cached · no WebKey"}
+        style={{ right: 105, top: 52, width: 450, minHeight: 112 }}
+      />
+      <SourceProof
+        local={local}
+        start={48}
+        logo="integrations/icann.png"
+        logoWidth={68}
+        logoHeight={68}
+        label="RDAP · LIVE"
+        proof="anwebber.com · 28.0y · 0.44s"
+        style={{ right: 105, top: 188, width: 450 }}
+      />
       <div
         style={{
           position: "absolute",
@@ -1646,7 +1779,6 @@ function VerifierDemo({ local }: { local: number }) {
             borderRadius: 22,
             background: C.raised,
             opacity: interpolate(local, [18, 45], [0, 1], clamp),
-            translate: `${interpolate(local, [18, 48], [-70, 0], clamp)}px 0`,
           }}
         >
           <div style={{ fontFamily: GEIST_MONO, color: C.green, fontSize: 22 }}>
@@ -1668,8 +1800,9 @@ function VerifierDemo({ local }: { local: number }) {
           <div
             style={{
               width: 3,
-              height: interpolate(local, [40, 85], [0, 260], clamp),
+              height: 260,
               background: C.red,
+              opacity: interpolate(local, [40, 62], [0, 1], clamp),
             }}
           />
         </div>
@@ -1680,7 +1813,6 @@ function VerifierDemo({ local }: { local: number }) {
             borderRadius: 22,
             background: "rgba(127,29,29,.14)",
             opacity: interpolate(local, [48, 75], [0, 1], clamp),
-            translate: `${interpolate(local, [48, 78], [70, 0], clamp)}px 0`,
           }}
         >
           <div
@@ -1715,11 +1847,6 @@ function VerifierDemo({ local }: { local: number }) {
           color: C.red,
           letterSpacing: "-.07em",
           opacity: interpolate(local, [82, 108], [0, 1], clamp),
-          scale: interpolate(local, [82, 112], [1.18, 1], {
-            ...clamp,
-            easing: ease,
-          }),
-          filter: `blur(${interpolate(local, [82, 105], [12, 0], clamp)}px)`,
         }}
       >
         REFUSE
@@ -1746,18 +1873,14 @@ function CloserDemo({ local }: { local: number }) {
       >
         03 · CLOSER
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 105,
-          top: 112,
-          width: 720,
-          fontSize: 68,
-          letterSpacing: "-.05em",
-          lineHeight: 1.02,
-        }}
-      >
-        Keep the rate moving.
+      <div style={{ position: "absolute", left: 105, top: 112, width: 720 }}>
+        <WordReveal
+          text="Keep the rate moving."
+          start={304}
+          step={7}
+          fontSize={68}
+          motion="drift"
+        />
       </div>
       <div style={{ position: "absolute", left: 105, top: 330, width: 640 }}>
         {[
@@ -1784,7 +1907,6 @@ function CloserDemo({ local }: { local: number }) {
                 [0, 1],
                 clamp,
               ),
-              translate: `${interpolate(local, [18 + i * 29, 42 + i * 29], [i === 1 ? 70 : -70, 0], clamp)}px 0`,
             }}
           >
             {message}
@@ -1795,7 +1917,6 @@ function CloserDemo({ local }: { local: number }) {
         style={{
           position: "absolute",
           right: 180,
-          top: 285,
           width: 700,
           height: 590,
         }}
@@ -1827,7 +1948,6 @@ function CloserDemo({ local }: { local: number }) {
                 [0, 1],
                 clamp,
               ),
-              translate: `0 ${interpolate(local, [28 + i * 28, 52 + i * 28], [40, 0], clamp)}px`,
             }}
           >
             <div
@@ -1882,25 +2002,24 @@ function PaydayDemo({ local }: { local: number }) {
       >
         04 · PAYDAY
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 105,
-          top: 118,
-          fontSize: 68,
-          letterSpacing: "-.05em",
-        }}
-      >
-        Turn waiting into proof.
+      <div style={{ position: "absolute", left: 105, top: 118 }}>
+        <WordReveal
+          text="Turn waiting into proof."
+          start={454}
+          step={7}
+          fontSize={68}
+          motion="settle"
+        />
       </div>
       <div style={{ position: "absolute", left: 110, right: 110, top: 360 }}>
         <div style={{ height: 5, background: C.raised, borderRadius: 8 }}>
           <div
             style={{
               height: "100%",
-              width: `${interpolate(local, [18, 98], [0, 100], clamp)}%`,
+              width: "100%",
               background: C.orange,
               boxShadow: "0 0 24px rgba(249,115,22,.55)",
+              opacity: interpolate(local, [18, 42], [0, 1], clamp),
             }}
           />
         </div>
@@ -1987,7 +2106,6 @@ function PaydayDemo({ local }: { local: number }) {
                 [0, 1],
                 clamp,
               ),
-              translate: `0 ${interpolate(local, [82 + i * 14, 103 + i * 14], [25, 0], clamp)}px`,
             }}
           >
             {proof} ✓
@@ -2001,7 +2119,6 @@ function PaydayDemo({ local }: { local: number }) {
           bottom: 80,
           textAlign: "right",
           opacity: interpolate(local, [93, 120], [0, 1], clamp),
-          translate: `${interpolate(local, [93, 122], [65, 0], clamp)}px 0`,
         }}
       >
         <div style={{ fontFamily: GEIST_MONO, color: C.muted, fontSize: 22 }}>
@@ -2066,11 +2183,7 @@ function Close() {
               display: "flex",
               justifyContent: "center",
               opacity: interpolate(frame, [6, 36], [0, 1], clamp),
-              scale: interpolate(frame, [6, 42], [0.72, 1], {
-                ...clamp,
-                easing: ease,
-              }),
-              filter: `drop-shadow(0 0 ${interpolate(frame, [18, 120], [0, 34], clamp)}px rgba(249,115,22,.35))`,
+              filter: "drop-shadow(0 0 26px rgba(249,115,22,.28))",
             }}
           >
             <Logo size={132} />
@@ -2082,10 +2195,9 @@ function Close() {
               letterSpacing: "-.055em",
               marginTop: 35,
               opacity: interpolate(frame, [32, 62], [0, 1], clamp),
-              translate: `0 ${interpolate(frame, [32, 62], [24, 0], clamp)}px`,
             }}
           >
-            Sentinel
+            Lumper Backstop
           </div>
           <div style={{ marginTop: 22, width: 1120 }}>
             <WordReveal
@@ -2093,6 +2205,7 @@ function Close() {
               start={62}
               step={9}
               fontSize={38}
+              motion="rise"
               align="center"
             />
           </div>
@@ -2108,6 +2221,17 @@ function Close() {
           >
             FIND · VERIFY · NEGOTIATE · GET PAID
           </div>
+          <div style={{ marginTop: 48, width: 1120 }}>
+            <WordReveal
+              text="Now let's see how Backstop works."
+              start={215}
+              step={10}
+              fontSize={38}
+              motion="settle"
+              align="center"
+              letterSpacing="-.038em"
+            />
+          </div>
         </div>
       </div>
     </Shell>
@@ -2121,9 +2245,9 @@ export const SilentStory = () => (
     <style>{`b, strong { font-weight: 400 !important; }`}</style>
     <Audio
       src={staticFile("emotional-score.mp3")}
-      trimAfter={sec(110)}
+      trimAfter={sec(114)}
       volume={(f) =>
-        interpolate(f, [0, 45, sec(102), sec(110)], [0, 0.92, 0.92, 0], clamp)
+        interpolate(f, [0, 45, sec(108), sec(114)], [0, 0.92, 0.92, 0], clamp)
       }
     />
     {TIMELINE.map(({ from, duration, component: Comp }) => (

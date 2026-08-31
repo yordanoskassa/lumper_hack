@@ -2,11 +2,11 @@ import {Composition} from "remotion";
 import {SilentStory} from "./SilentStory";
 
 export const FPS = 30;
-export const DURATION = 110 * FPS;
+export const DURATION = 114 * FPS;
 
 export const RemotionRoot = () => (
   <Composition
-    id="Sentinel"
+    id="LumperBackstop"
     component={SilentStory}
     durationInFrames={DURATION}
     fps={FPS}

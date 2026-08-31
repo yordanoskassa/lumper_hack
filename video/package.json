@@ -1,11 +1,11 @@
 {
-  "name": "sentinel-video",
+  "name": "lumper-backstop-video",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "studio": "remotion studio",
-    "render": "remotion render src/index.ts Sentinel out/sentinel.mp4 --concurrency 8",
-    "still": "remotion still src/index.ts Sentinel out/poster.png --frame=3210"
+    "render": "remotion render src/index.ts LumperBackstop out/lumper-backstop.mp4 --concurrency 8",
+    "still": "remotion still src/index.ts LumperBackstop out/poster.png --frame=3210"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.435",
