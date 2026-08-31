@@ -220,6 +220,117 @@ async def mail_send(body: dict = Body(...)):
             "detail": res.detail}
 
 
+
+
+@router.post("/document")
+async def document(body: dict = Body(...)):
+    """A driver hands over a document. Payday reads it and decides where it
+    belongs — that routing is the agent's job, and making a driver choose
+    'broker or dispatcher' is asking them to do the work we built a fleet for."""
+    posting_id = body.get("posting_id") or ""
+    note = (body.get("note") or "").strip()
+    filename = (body.get("filename") or "document").strip()
+
+    tenant_doc = await bank.get("settings", "tenant") or {}
+    broker_email, broker_name, lane = None, None, ""
+    if posting_id:
+        from .tools.loadboards import adapter
+        for p in await adapter().search((tenant_doc.get("truck") or {}).get("city", "")):
+            if p["id"] == posting_id:
+                b = await bank.get("brokers", p["mc"]) or {}
+                broker_email, broker_name = b.get("email"), b.get("name")
+                lane = f"{p['o']} → {p['d']}"
+                break
+
+    # What the paper is decides who needs it. A signed bill and a detention
+    # claim are the broker's business; anything about the truck itself is the
+    # carrier's own office.
+    hay = f"{filename} {note}".lower()
+    if any(w in hay for w in ("detention", "waiting", "sat", "delay")):
+        routed_as, to, kind = "Detention evidence", broker_email, "detention_claim"
+    elif any(w in hay for w in ("bol", "pod", "delivery", "signed", "receipt")):
+        routed_as, to, kind = "Proof of delivery", broker_email, "pod"
+    elif any(w in hay for w in ("rate", "confirmation", "ratecon", "contract")):
+        routed_as, to, kind = "Rate confirmation", broker_email, "outbound"
+    elif any(w in hay for w in ("insurance", "coi", "w-9", "w9", "authority", "packet")):
+        routed_as, to, kind = "Carrier packet", broker_email, "outbound"
+    else:
+        routed_as, to, kind = "Trip paperwork", tenant_doc.get("email"), "outbound"
+
+    if not to:
+        raise HTTPException(400, "nobody on file to route this to")
+
+    who = broker_name if to == broker_email else "your dispatcher"
+    subject = f"{routed_as} — {posting_id or 'trip'}" + (f" · {lane}" if lane else "")
+    text = (f"{routed_as} attached ({filename}).\n\n"
+            + (note + "\n\n" if note else "")
+            + "Sent by Lumper Backstop on behalf of "
+            + f"{tenant_doc.get('name', 'the carrier')}.")
+
+    from .tools import mail as mail_tool
+    run_id = runs.new_run_id()
+    res = await mail_tool.send(run_id, to=to, subject=subject, body=text,
+                               attachment=filename, kind=kind)
+    return {"run_id": run_id, "routed_as": routed_as, "to": who,
+            "backend": res.backend, "detail": res.detail}
+
+
+@router.get("/fuel")
+async def fuel_plan(posting_id: str | None = None):
+    """Where to buy diesel on this run, and what the choice is worth.
+
+    Diesel is priced by PADD region and the spread between regions is real
+    money on a full tank — a truck crossing a PADD line can save more by timing
+    the stop than a dispatcher saves haggling the rate. Prices are EIA's own
+    weekly series, read live and keyless."""
+    from .tools import fuel as fuel_tool
+    from .tools.loadboards import adapter
+    from .data.seed import STATE_PADD, coords_for_city
+
+    tenant_doc = await bank.get("settings", "tenant") or {}
+    truck = tenant_doc.get("truck") or {}
+    mpg = float(truck.get("mpg") or 6.4)
+
+    origin, dest, miles = truck.get("city", ""), None, None
+    if posting_id:
+        for p in await adapter().search(truck.get("city", "")):
+            if p["id"] == posting_id:
+                origin, dest, miles = p["o"], p["d"], float(p.get("mi") or 0)
+                break
+
+    def padd_of(city: str) -> str:
+        return STATE_PADD.get((city or "")[-2:].upper(), "US")
+
+    stops = []
+    for label, city in (("Before you leave", origin), ("At delivery", dest)):
+        if not city:
+            continue
+        padd = padd_of(city)
+        price, asof, backend, why = await fuel_tool.diesel_price(padd)
+        lat, lng = coords_for_city(city)
+        stops.append({"label": label, "city": city, "padd": padd,
+                      "price": round(price, 3), "asof": asof,
+                      "backend": backend, "why": why, "lat": lat, "lng": lng})
+
+    gallons = round(miles / mpg, 1) if miles else None
+    advice, saving = None, 0.0
+    if len(stops) == 2 and gallons:
+        cheap, dear = sorted(stops, key=lambda x: x["price"])[0], sorted(stops, key=lambda x: x["price"])[-1]
+        saving = round((dear["price"] - cheap["price"]) * gallons, 2)
+        if saving >= 5:
+            advice = (f"Fill {cheap['city']} ({cheap['padd']}), not {dear['city']} "
+                      f"({dear['padd']}) — ${cheap['price']:.3f} against "
+                      f"${dear['price']:.3f} a gallon. On {gallons} gallons that is "
+                      f"${saving:,.2f} you keep.")
+        else:
+            advice = (f"Barely a cent between {cheap['padd']} and {dear['padd']} this "
+                      f"week. Fuel wherever the driver wants to stop.")
+
+    return {"posting_id": posting_id, "origin": origin, "dest": dest,
+            "miles": miles, "mpg": mpg, "gallons": gallons,
+            "stops": stops, "advice": advice, "saving": saving}
+
+
 @router.get("/registry")
 async def registry():
     return {"agents": cards()}

@@ -3,6 +3,7 @@ import type { DriverLoad } from "@/api";
 import { Button } from "@/components/ui/button";
 import { DetentionCard } from "@/driver/DetentionCard";
 import { haversineMi } from "@/driver/geo";
+import { FuelCard } from "@/driver/FuelCard";
 import { Empty, RunShell, useRun } from "@/driver/RunProvider";
 
 /** The run itself: the route, the arrival timestamp, and the clock that turns a
@@ -65,6 +66,7 @@ function Trip({ load, here, onArrive, onDrop }: {
         When you pull into the dock, hit the button. That timestamp is what gets you
         paid if they make you wait.
       </div>
+      <FuelCard postingId={load.id} />
       <Button size="cab" className="mt-5" onClick={onArrive}>I'm at the dock</Button>
       {/* Before the clock starts there is no claim to lose, so backing out is
           free — and a driver who tapped the wrong card should not have to

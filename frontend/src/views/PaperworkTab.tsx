@@ -53,7 +53,7 @@ export function PaperworkTab() {
   return (
     <RunShell map={false}>
       {body}
-      <SendToBroker />
+      <SendDocument />
       <Separator className="mt-7 mb-6" />
       <Evidence screen={screen} />
     </RunShell>
@@ -503,91 +503,90 @@ function Blocked({ q }: { q: QuarantineItem }) {
   );
 }
 
-/** Send something to the broker, on purpose. Payday files paperwork on its own
- *  as the run moves, but a driver sometimes needs to say a specific thing —
- *  "I'm sitting here", "here's the signed bill", "I want this load" — and it
- *  should go out as a real message from the fleet, not a note to self. */
-function SendToBroker() {
+/** Upload a document. The driver does not choose who it goes to — that is the
+ *  agent's job, and asking a driver to pick "dispatcher or broker" is asking
+ *  them to do the routing we built a fleet to do. Payday reads what it is and
+ *  sends it where it belongs. */
+function SendDocument() {
   const { picked } = useRun();
-  const KINDS = [
-    { key: "interest", label: "I want this load", icon: Truck,
-      subject: (id: string) => `Interest in ${id}`,
-      body: "We want this load. Truck 12, M. Alvarez, dry van, empty and ready. Confirm and we'll send the rate confirmation." },
-    { key: "detention", label: "I'm sitting in detention", icon: Clock,
-      subject: (id: string) => `Detention starting — ${id}`,
-      body: "The truck is on your property and the free window has closed. The clock is running and the arrival time is GPS-stamped. This is notice." },
-    { key: "pod", label: "Here's the signed bill", icon: FileCheck,
-      subject: (id: string) => `POD attached — ${id}`,
-      body: "Delivered. Signed bill of lading attached, with the GPS position it was photographed at. Please release payment." },
-  ] as const;
-
-  const [kind, setKind] = useState<(typeof KINDS)[number]["key"]>("interest");
+  const [file, setFile] = useState<string | null>(null);
+  const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<{ ok: boolean; detail: string } | null>(null);
-  const chosen = KINDS.find((k) => k.key === kind)!;
-  const loadId = picked?.id ?? "P-90412";
+  const [result, setResult] = useState<{ ok: boolean; to?: string; routed?: string; detail: string } | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const loadId = picked?.id ?? "";
 
   async function send() {
-    setSending(true); setSent(null);
+    setSending(true); setResult(null);
     try {
-      const r = await fetch(API_BASE + "/api/mail", {
+      const r = await fetch(API_BASE + "/api/document", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          kind, posting_id: loadId,
-          subject: chosen.subject(loadId),
-          body: note.trim() ? `${chosen.body}\n\n${note.trim()}` : chosen.body,
-        }),
+        body: JSON.stringify({ posting_id: loadId, filename: name, note: note.trim(), image_b64: file }),
       });
       const j = await r.json();
-      setSent({ ok: r.ok && j.backend === "live", detail: j.detail ?? j.detail ?? "" });
+      setResult({ ok: r.ok, to: j.to, routed: j.routed_as, detail: j.detail ?? "" });
     } catch (e: any) {
-      setSent({ ok: false, detail: String(e.message ?? e) });
+      setResult({ ok: false, detail: String(e.message ?? e) });
     } finally { setSending(false); }
   }
 
   return (
     <div className="mt-5 rounded-2xl border border-border bg-card p-4">
       <div className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-        Send to the broker
+        Send a document
       </div>
-      <p className="mt-1 text-[12px] text-muted-foreground">
-        Goes out through the fleet's own mail, on {loadId}.
+      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+        Upload it. Payday reads what it is and sends it to the right place —
+        the broker, or your dispatcher.
       </p>
 
-      <div className="mt-3 flex flex-col gap-1.5">
-        {KINDS.map((k) => (
-          <button
-            key={k.key}
-            onClick={() => setKind(k.key)}
-            className={cn(
-              "flex min-h-11 items-center gap-2.5 rounded-xl border px-3 text-left text-[13px] transition-colors",
-              kind === k.key ? "border-primary/50 bg-primary/10 text-foreground" : "border-border hover:bg-muted/40",
-            )}
-          >
-            <k.icon className={cn("size-4 shrink-0", kind === k.key ? "text-primary" : "text-muted-foreground")} />
-            {k.label}
-          </button>
-        ))}
-      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          setName(f.name);
+          const rd = new FileReader();
+          rd.onload = () => setFile(String(rd.result).split(",")[1] ?? "");
+          rd.readAsDataURL(f);
+        }}
+      />
+
+      <button
+        onClick={() => inputRef.current?.click()}
+        className={cn(
+          "mt-3 flex h-28 w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed text-[13px] font-medium transition-colors",
+          file ? "border-ok bg-ok/8 text-ok" : "border-border bg-muted/25 text-muted-foreground hover:bg-muted/40",
+        )}
+      >
+        <Paperclip className="size-5" />
+        {file ? name || "Document attached" : "Attach a document or take a photo"}
+      </button>
 
       <textarea
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Anything to add (optional)"
+        placeholder="Anything the agent should know (optional)"
         rows={2}
         className="mt-3 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-[13px] outline-none focus-visible:border-ring"
       />
 
-      <Button size="cab" className="mt-3" disabled={sending} onClick={send}>
+      <Button size="cab" className="mt-3" disabled={sending || !file} onClick={send}>
         <Send className="size-4" />
-        {sending ? "Sending…" : chosen.label}
+        {sending ? "Payday is reading it…" : "Hand it to Payday"}
       </Button>
 
-      {sent && (
-        <div className={cn("mt-2.5 rounded-lg border px-3 py-2 text-[12px]",
-          sent.ok ? "border-ok/35 bg-ok/10 text-ok" : "border-warn/35 bg-warn/10 text-warn")}>
-          {sent.detail}
+      {result && (
+        <div className={cn("mt-2.5 rounded-lg border px-3 py-2 text-[12px] leading-relaxed",
+          result.ok ? "border-ok/35 bg-ok/10 text-ok" : "border-warn/35 bg-warn/10 text-warn")}>
+          {result.routed && <div className="font-semibold">Read as: {result.routed}</div>}
+          {result.to && <div className="mt-0.5">Sent to {result.to}</div>}
+          <div className="mt-0.5 text-muted-foreground">{result.detail}</div>
         </div>
       )}
     </div>
