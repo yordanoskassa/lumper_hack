@@ -61,48 +61,74 @@ export function PaperworkTab() {
   );
 }
 
-/** The other half of the money: the hours at the dock. One tap and Payday runs
- *  the whole fight in the background — the clock, the timestamped notice at the
- *  free-window boundary, the escalation, the filed claim — each message landing
- *  in the evidence locker below as it happens. */
+/** The three jobs this tab does, all of them handed to an agent and all of them
+ *  narrated in the Dispatch thread. A driver taps here; the fleet answers there,
+ *  because the conversation is the record of the run. */
 function RequestDetention() {
-  const { picked } = useRun();
-  const [busy, setBusy] = useState(false);
-  const [res, setRes] = useState<{ ok: boolean; text: string } | null>(null);
+  const { picked, request, reply } = useRun();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  async function go() {
-    setBusy(true); setRes(null);
+  async function logDetention(withEvidence: boolean, image?: string, name?: string) {
+    setBusy(withEvidence ? "evidence" : "gps"); setErr(null);
+    request(withEvidence
+      ? `Here's my proof of the wait at ${picked?.dest ?? "the dock"} — get it paid`
+      : `They made me wait at ${picked?.dest ?? "the dock"} — use my GPS and get it paid`);
     try {
-      const r = await api.requestDetention(picked?.id);
-      setRes({
-        ok: true,
-        text: `Payday is on it. The timestamped notice, the escalation and the claim will land below as they're sent — with your GPS stamps attached. (run ${r.run_id})`,
-      });
+      if (withEvidence) {
+        const r = await fetch(API_BASE + "/api/document", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ posting_id: picked?.id ?? "", doc_type: "detention",
+                                 filename: name ?? "detention-evidence.jpg", image_b64: image }),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.detail ?? String(r.status));
+        reply(`Payday read it, attached it to the claim, and sent it to ${j.to}. ${j.detail}.`);
+      }
+      const d = await api.requestDetention(picked?.id);
+      reply(withEvidence
+        ? `Claim ${d.run_id} is filed with your evidence on it.`
+        : `Payday ran the clock back off your GPS stamps, told the broker in writing with the arrival time on it, and filed the claim. Run ${d.run_id} — the notice and the claim are in Documents below, and in the broker's inbox.`);
     } catch (e: any) {
-      setRes({ ok: false, text: `Couldn't start the claim — ${e.message ?? e}` });
-    } finally { setBusy(false); }
+      setErr(String(e.message ?? e));
+      reply(`I could not file that claim — ${e.message ?? e}`);
+    } finally { setBusy(null); }
   }
 
   return (
     <div className="mt-5 rounded-2xl border border-border bg-card p-4">
       <div className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-        Request detention
+        Get the waiting time paid
       </div>
       <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
         Made to wait past the free window? Payday runs the clock back, tells the
         broker in writing with the arrival time stamped, escalates when they go
-        quiet, and files the claim.
+        quiet, and files the claim. You never pick a recipient.
       </p>
-      <Button size="cab" className="mt-3" disabled={busy} onClick={go}>
-        <Clock className="size-4" />
-        {busy ? "Payday is starting the claim…" : "Get my waiting time paid"}
+
+      <input ref={fileRef} type="file" accept="image/*,application/pdf" capture="environment" hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          const rd = new FileReader();
+          rd.onload = () => logDetention(true, String(rd.result).split(",")[1] ?? "", f.name);
+          rd.readAsDataURL(f);
+        }} />
+
+      <Button size="cab" className="mt-3" disabled={!!busy} onClick={() => logDetention(false)}>
+        <Navigation className="size-4" />
+        {busy === "gps" ? "Payday is filing it…" : "Log detention from my GPS"}
       </Button>
-      {res && (
-        <div className={cn(
-          "mt-2.5 rounded-lg border px-3 py-2 text-[12px] leading-relaxed",
-          res.ok ? "border-border bg-muted/30 text-muted-foreground" : "border-bad/35 bg-bad/10 text-bad",
-        )}>
-          {res.text}
+      <Button variant="outline" size="cab" className="mt-2" disabled={!!busy}
+        onClick={() => fileRef.current?.click()}>
+        <Paperclip className="size-4" />
+        {busy === "evidence" ? "Payday is reading it…" : "Log detention with evidence"}
+      </Button>
+
+      {err && (
+        <div className="mt-2.5 rounded-lg border border-bad/35 bg-bad/10 px-3 py-2 text-[12px] leading-relaxed text-bad">
+          {err}
         </div>
       )}
     </div>
@@ -564,7 +590,7 @@ const DOC_TYPES = [
 ] as const;
 
 function SendDocument() {
-  const { picked } = useRun();
+  const { picked, request, reply } = useRun();
   const [docType, setDocType] = useState<string>("pod");
   const [file, setFile] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -576,6 +602,9 @@ function SendDocument() {
 
   async function send() {
     setSending(true); setResult(null);
+    request(docType === "detention"
+      ? "Here's my proof of the wait — file it"
+      : "Delivered. Here's the signed bill.");
     try {
       const r = await fetch(API_BASE + "/api/document", {
         method: "POST", headers: { "content-type": "application/json" },
@@ -584,6 +613,12 @@ function SendDocument() {
       });
       const j = await r.json();
       setResult({ ok: r.ok, to: j.to, routed: j.routed_as, detail: j.detail ?? "" });
+      reply(r.ok
+        ? `Read it as a ${String(j.routed_as).toLowerCase()}, worked out that ${j.to} needs it, and sent it. `
+          + (j.invoice
+            ? `Invoice ${j.invoice.number} raised off it — $${Number(j.invoice.total).toLocaleString()} — and it went with the document.`
+            : `${j.detail}.`)
+        : `That did not go through — ${j.detail ?? r.status}`);
     } catch (e: any) {
       setResult({ ok: false, detail: String(e.message ?? e) });
     } finally { setSending(false); }

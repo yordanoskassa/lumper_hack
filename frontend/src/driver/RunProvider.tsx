@@ -49,6 +49,13 @@ interface RunValue {
   verifying: DriverLoad | null;
   scan: ScanResult | null;
   announce: { text: string; at: number } | null;
+  /** What the fleet said back. Paired with `announce`, the thread carries both
+   *  halves of every tap, so the chat is the record of the whole run. */
+  replied: { text: string; at: number } | null;
+  /** A tap anywhere in the app, spoken into the thread as the driver's words. */
+  request: (text: string) => void;
+  /** The fleet's answer to it. */
+  reply: (text: string) => void;
   gps: [number, number] | null;
   dockPos: [number, number] | null;
   det: DetentionState;
@@ -101,7 +108,9 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   // one is announced here so Dispatch narrates it in the thread — the agent is
   // the system, not a second way to reach it.
   const [announce, setAnnounce] = useState<{ text: string; at: number } | null>(null);
+  const [replied, setReplied] = useState<{ text: string; at: number } | null>(null);
   const say = (text: string) => setAnnounce({ text, at: Date.now() });
+  const reply = (text: string) => setReplied({ text, at: Date.now() });
   const [board, setBoard] = useState<DriverBoard | null>(null);
   const [picked, setPicked] = useState<DriverLoad | null>(null);
   const [verifying, setVerifying] = useState<DriverLoad | null>(null);
@@ -299,7 +308,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   const value: RunValue = {
     screen, board, picked, verifying, scan, gps, dockPos, det, offer, checkedIds,
     podImg, err, mapFailed, trace,
-    announce,
+    announce, replied, request: say, reply,
     truck, here, pins, routes, focus, onTrip, activeTab: tab,
     hunt, openScan, finishVerify, arrive, takePaperwork, setPodImg, sendPod, reset,
     setTab, setScreen, setMapFailed,

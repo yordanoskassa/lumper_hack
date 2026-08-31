@@ -136,6 +136,15 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
     setLocal((m) => (m.at(-1)?.text === said.text ? m : [...m, { role: "user", text: said.text }]));
   }, [said?.at, setLocal]);
 
+  // The other half: what the fleet answered. Same channel, so an action taken
+  // in Paperwork reads in the thread as the agents doing the work — because
+  // they did; this only puts their answer where the conversation is.
+  const answered = run.replied;
+  useEffect(() => {
+    if (!answered) return;
+    setLocal((m) => (m.at(-1)?.text === answered.text ? m : [...m, { role: "assistant", text: answered.text }]));
+  }, [answered?.at, setLocal]);
+
   const stage = run.screen;
   useEffect(() => {
     const want: Record<string, Msg["card"]> = {
@@ -146,7 +155,7 @@ export function Chat({ chatFeed, local, setLocal, trace, onRoute }: {
     setLocal((m) => {
       if (m.some((x) => x.card === card)) return m;
       const say: Record<string, string> = {
-        loads: "Here is the board. I priced every posting and screened every broker — tap one and Verifier pulls its federal record.",
+        loads: "Here is the board. I priced every posting against real miles and real diesel. Nobody has checked who these brokers are yet — tap one and Verifier pulls its federal record in front of you.",
         verify: "Handing it to Verifier.",
         run: "Booked. Closer has the trip; Payday takes it from the dock.",
         paid: "Paid, and the detention went with it.",

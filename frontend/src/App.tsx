@@ -111,7 +111,7 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   // had, a CTA calling setTab() with the value it already held changed nothing,
   // so the view was stuck for good. `section` only tracks whether we are in the
   // run at all; which run tab shows is read straight from the context.
-  const { activeTab, setTab, screen } = useRun();
+  const { activeTab, setTab, screen, announce } = useRun();
   const [section, setSection] = useState<"run" | "money" | "dispatch" | "desk" | "fleet" | "registry">("run");
   // The run's own tab still drives Loads vs Paperwork; "trip" and "dock" have
   // no tab of their own any more — they play out in the agent thread.
@@ -133,6 +133,14 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   useEffect(() => {
     if (screen === "hunting" || screen === "verify") setSection("dispatch");
   }, [screen]);
+
+  // Every tap in the app is a request to the fleet, so every tap takes you to
+  // where the fleet answers. Uploading a POD or logging detention is not a form
+  // submission that returns a toast — it is a job handed to an agent, and the
+  // driver should be watching it land.
+  useEffect(() => {
+    if (announce) setSection("dispatch");
+  }, [announce?.at]);
 
   // Everything up to and including the offer email is Dispatch's half of the run.
   const finding = screen === "home" || screen === "hunting" || screen === "loads"
