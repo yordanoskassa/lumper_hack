@@ -14,6 +14,32 @@ has time to chase it. Backstop is that chase, automated.
 **Built with Google Gemini** · `gemini-3.5-flash` via the Google GenAI SDK ·
 running on Google Cloud Run.
 
+> ### About the data on this board
+>
+> **Every load posting in this project is fabricated.** No real load, rate,
+> shipment, or transaction is shown anywhere in the demo. The load-board feed is
+> the one simulated component (see [What's real](#whats-real-and-the-one-thing-we-simulate)),
+> because DAT, Truckstop and 123Loadboard require signed vendor agreements.
+>
+> **The broker companies named in the demo are real, active, bonded brokers, and
+> they appear here only as the *victims* of a fabricated impersonation.** No
+> wrongdoing by any named company is depicted, alleged, or implied. Where a
+> fabricated posting carries a real docket, the app states on screen that the
+> company is real and the *posting* is the forgery — "someone posing as" — and
+> refusing the load blacklists the impostor's contact details, never the docket
+> holder. That is also how the real crime works: double brokering hijacks a
+> legitimate carrier's identity, and the legitimate carrier is the party harmed.
+>
+> **The fraud indicators are fictional.** The mismatched callback numbers, the
+> shell-company identities, the bank routing numbers, and this carrier's payment
+> history with these brokers are all invented. What is *not* invented is the
+> federal record we compare against: name, USDOT, address, registered phone,
+> authority status and bond come from a live, keyless call to FMCSA's public
+> Licensing & Insurance and Motor Carrier Census datasets.
+>
+> No affiliation with, or endorsement by, any named company is claimed. Every
+> record shown is public information published by the FMCSA.
+
 **Live API:** https://lumper-backstop-1094415841088.us-central1.run.app/api/health
 
 Screen any real broker against the live federal register, straight from the

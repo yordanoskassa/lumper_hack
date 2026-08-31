@@ -204,6 +204,24 @@ accident.
 - **Factoring rails:** the invoice + GPS + POD packet Payday already builds is
   exactly what a factor buys; wire it to one.
 
+## About the data (please read before judging)
+
+**Every load posting is fabricated.** No real load, rate, or transaction appears
+anywhere. The load board is the one simulated feed — DAT and Truckstop require
+signed vendor agreements.
+
+**The brokers named are real, licensed, bonded companies, and they appear only as
+the victims of a fabricated impersonation.** No wrongdoing by any named company is
+depicted or implied. The app says so on screen — "someone posing as" — and
+refusing a load blacklists the impostor's contact, never the real docket holder.
+That is how double brokering actually works: it hijacks a legitimate carrier's
+identity, and that carrier is the party harmed.
+
+**The fraud signals are invented** (mismatched callbacks, shell identities, bank
+routing, payment history). **The federal record is not** — name, USDOT, address,
+registered phone, authority and bond come from a live keyless call to FMCSA's
+public datasets, which is the one thing in the demo we want checked hardest.
+
 ## Built with
 
 `gemini-3.5-flash` · `google-genai-sdk` · `google-cloud-run` · `cloud-build` ·
