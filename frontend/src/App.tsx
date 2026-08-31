@@ -1,29 +1,40 @@
 import { useEffect, useState } from "react";
 import {
-  DollarSign, MessageSquare, Settings2, Smartphone, Truck, Users, X, type LucideIcon,
+  DollarSign, FileText, MapPin, MessageSquare, Settings2, Truck, X, type LucideIcon,
 } from "lucide-react";
-import { api, type Desk as DeskData } from "@/api";
+import { api, type Desk as DeskData, type TraceEvent } from "@/api";
 import { useStream } from "@/useStream";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Chat, CHAT_GREETING } from "@/components/Chat";
 import { Desk } from "@/views/Desk";
-import { Driver } from "@/views/Driver";
 import { DriverApp } from "@/driver/DriverApp";
 import { Fleet } from "@/views/Fleet";
+import { LoadsTab } from "@/views/LoadsTab";
 import { Money } from "@/views/Money";
+import { PaperworkTab } from "@/views/PaperworkTab";
 import { Registry } from "@/views/Registry";
+import { TripTab } from "@/views/TripTab";
+import { RunProvider, useRun } from "@/driver/RunProvider";
 
-type View = "driver" | "desk" | "fleet" | "money" | "registry";
+type View = "loads" | "trip" | "paperwork" | "money" | "desk" | "fleet" | "registry";
 
-/** The product's four surfaces. The agent registry is not one of them: a
- *  directory of our own software is something a judge wants to audit, not
- *  something a dispatcher opens on a Tuesday. It lives under System. */
+/** Backstop is the driver's side of Lumper, so there is no "driver" tab — the
+ *  whole product is theirs. These are the four jobs of a driver's day, which is
+ *  the same single run split across the surfaces that own each part of it.
+ *  The dispatcher board, the truck roster and the agent registry are all
+ *  auditor's views, not a driver's: they live under System. */
 const NAV: { key: View; label: string; short: string; Icon: LucideIcon }[] = [
-  { key: "driver", label: "Driver", short: "Drive", Icon: Smartphone },
-  { key: "desk", label: "Loads", short: "Loads", Icon: Truck },
-  { key: "fleet", label: "Fleet", short: "Fleet", Icon: Users },
+  { key: "loads", label: "Loads", short: "Loads", Icon: Truck },
+  { key: "trip", label: "My run", short: "Run", Icon: MapPin },
+  { key: "paperwork", label: "Paperwork", short: "Docs", Icon: FileText },
   { key: "money", label: "Money", short: "Money", Icon: DollarSign },
+];
+
+const SYSTEM: { key: View; label: string }[] = [
+  { key: "desk", label: "Dispatcher board" },
+  { key: "fleet", label: "Truck roster" },
+  { key: "registry", label: "Agents & scopes" },
 ];
 
 const ROSTER = ["Dispatch", "Finder", "Verifier", "Closer", "Payday"];
@@ -39,15 +50,10 @@ function standalone(): boolean {
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("driver");
+  // One SSE connection for the whole app, owned above the provider so the run
+  // context and every view read the same stream.
   const [deskFromStream, setDeskFromStream] = useState<DeskData | null>(null);
   const [chatFeed, setChatFeed] = useState<{ role: string; text: string }[]>([]);
-  const [tenant, setTenant] = useState<any>(null);
-  const [health, setHealth] = useState<any>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatLog, setChatLog] = useState([CHAT_GREETING]);
-  const [activeAgents, setActiveAgents] = useState<Record<string, number>>({});
-
   const { trace, connected } = useStream(
     (_runId, state) => { if (state.desk) setDeskFromStream(state.desk); },
     (e) => {
@@ -55,6 +61,54 @@ export default function App() {
         setChatFeed((f) => [...f, { role: e.role === "user" ? "user" : "assistant", text: e.text! }]);
     },
   );
+
+  if (standalone()) {
+    // DriverApp brings its own provider; the console chrome is not wanted here.
+    return (
+      <div className="h-dvh bg-background">
+        <DriverApp trace={trace} />
+      </div>
+    );
+  }
+
+  return (
+    <RunProvider trace={trace}>
+      <Shell trace={trace} connected={connected} deskFromStream={deskFromStream} chatFeed={chatFeed} />
+    </RunProvider>
+  );
+}
+
+/** Inside the provider so it can follow the run. RunProvider stays mounted for
+ *  the life of the app — remounting it would drop the load, the clock and the
+ *  paperwork every time someone changed tab. */
+function Shell({ trace, connected, deskFromStream, chatFeed }: {
+  trace: TraceEvent[];
+  connected: boolean;
+  deskFromStream: DeskData | null;
+  chatFeed: { role: string; text: string }[];
+}) {
+  // The run's own tab is the single source of truth for where the driver is in
+  // the flow. Mirroring it into local state let the two diverge — and once they
+  // had, a CTA calling setTab() with the value it already held changed nothing,
+  // so the view was stuck for good. `section` only tracks whether we are in the
+  // run at all; which run tab shows is read straight from the context.
+  const { activeTab, setTab } = useRun();
+  const [section, setSection] = useState<"run" | "money" | "desk" | "fleet" | "registry">("run");
+  const view: View = section === "run" ? (activeTab as View) : section;
+
+  function go(key: View) {
+    if (key === "loads" || key === "trip" || key === "paperwork") {
+      setTab(key);
+      setSection("run");
+    } else {
+      setSection(key as "money" | "desk" | "fleet" | "registry");
+    }
+  }
+  const [tenant, setTenant] = useState<any>(null);
+  const [health, setHealth] = useState<any>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatLog, setChatLog] = useState([CHAT_GREETING]);
+  const [activeAgents, setActiveAgents] = useState<Record<string, number>>({});
 
   useEffect(() => {
     (async () => {
@@ -71,20 +125,14 @@ export default function App() {
     if (who) setActiveAgents((a) => ({ ...a, [who]: Date.now() }));
   }, [trace.length]);
 
-  if (standalone()) {
-    return (
-      <div className="h-dvh bg-background">
-        <DriverApp trace={trace} />
-      </div>
-    );
-  }
-
   const body = (
     <>
-      {view === "driver" && <Driver trace={trace} connected={connected} />}
+      {view === "loads" && <LoadsTab />}
+      {view === "trip" && <TripTab />}
+      {view === "paperwork" && <PaperworkTab />}
+      {view === "money" && <Money />}
       {view === "desk" && <Desk trace={trace} connected={connected} deskFromStream={deskFromStream} />}
       {view === "fleet" && <Fleet trace={trace} />}
-      {view === "money" && <Money />}
       {view === "registry" && <Registry />}
     </>
   );
@@ -112,7 +160,7 @@ export default function App() {
           {NAV.map(({ key, label, Icon }) => (
             <button
               key={key}
-              onClick={() => setView(key)}
+              onClick={() => go(key)}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] transition-colors",
                 view === key
@@ -175,16 +223,23 @@ export default function App() {
           </>
         )}
 
-        <button
-          onClick={() => setView("registry")}
-          className={cn(
-            "mt-auto flex items-center gap-2 border-t border-border px-4 py-2.5 text-left text-[11px] transition-colors",
-            view === "registry" ? "text-primary" : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Settings2 className="size-3.5 shrink-0" />
-          System · agents, scopes, integrations
-        </button>
+        <div className="mt-auto border-t border-border pt-2">
+          <div className="flex items-center gap-1.5 px-4 pb-1 text-[10px] font-semibold tracking-[0.1em] text-muted-foreground uppercase">
+            <Settings2 className="size-3" /> System
+          </div>
+          {SYSTEM.map((x) => (
+            <button
+              key={x.key}
+              onClick={() => go(x.key)}
+              className={cn(
+                "block w-full px-4 py-1.5 text-left text-[11.5px] transition-colors",
+                view === x.key ? "text-primary" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
         <div className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
           {tenant?.tenant?.name ?? "K&M Hauling"} · {tenant?.tenant?.trucks ?? 3} trucks
         </div>
@@ -218,7 +273,7 @@ export default function App() {
                     scan_board: "desk", screen_broker: "desk",
                     book_load: "desk", run_scenario: "desk",
                   };
-                  if (to[route]) setView(to[route]);
+                  if (to[route]) go(to[route]);
                 }}
               />
             </div>
@@ -254,7 +309,7 @@ export default function App() {
             return (
               <button
                 key={key}
-                onClick={() => setView(key)}
+                onClick={() => go(key)}
                 aria-current={on ? "page" : undefined}
                 className={cn(
                   "flex min-h-14 flex-col items-center justify-center gap-1 pt-1.5 pb-1",
