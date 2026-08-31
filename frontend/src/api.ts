@@ -81,6 +81,8 @@ export interface DriverLoad {
   net: number;
   deadhead: number;
   eq: string;
+  /** What is on the deck — "2 operable sedans", "1 inoperable pickup". */
+  units?: string | null;
   drive_h: number;
   lane_avg: number;
   verdict: "CLEAR" | "REVIEW" | "BLOCKED";
@@ -162,6 +164,22 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mc, run_id, explain }),
     }).then(jn<any>),
+  /** One "we'll take it" email to the broker, then the flow stops. */
+  interest: (posting_id: string) =>
+    req("/api/interest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ posting_id }),
+    }).then(jn<{ run_id: string; to?: string; broker?: string; backend?: string; detail?: string }>),
+  /** Payday fights for the waiting time in the background: clock, timestamped
+   *  notice, escalation, claim. Falls back to the seeded dock story without a
+   *  posting. */
+  requestDetention: (posting_id?: string) =>
+    req("/api/detention/request", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ posting_id }),
+    }).then(jn<{ run_id: string; started: boolean }>),
   book: (posting_id: string, rate?: number) =>
     req("/api/book", {
       method: "POST",

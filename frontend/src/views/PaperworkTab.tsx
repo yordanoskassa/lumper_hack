@@ -3,7 +3,7 @@ import {
   AlertTriangle, Camera, ChevronDown, Clock, FileCheck, FileText, Gavel,
   Mail, Navigation, Paperclip, RefreshCw, Send, ShieldX, Truck, Wallet,
 } from "lucide-react";
-import { API_BASE, type DriverLoad } from "@/api";
+import { api, API_BASE, type DriverLoad } from "@/api";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,10 +53,59 @@ export function PaperworkTab() {
   return (
     <RunShell map={false}>
       {body}
+      <RequestDetention />
       <SendDocument />
       <Separator className="mt-7 mb-6" />
       <Evidence screen={screen} />
     </RunShell>
+  );
+}
+
+/** The other half of the money: the hours at the dock. One tap and Payday runs
+ *  the whole fight in the background — the clock, the timestamped notice at the
+ *  free-window boundary, the escalation, the filed claim — each message landing
+ *  in the evidence locker below as it happens. */
+function RequestDetention() {
+  const { picked } = useRun();
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function go() {
+    setBusy(true); setRes(null);
+    try {
+      const r = await api.requestDetention(picked?.id);
+      setRes({
+        ok: true,
+        text: `Payday is on it. The timestamped notice, the escalation and the claim will land below as they're sent — with your GPS stamps attached. (run ${r.run_id})`,
+      });
+    } catch (e: any) {
+      setRes({ ok: false, text: `Couldn't start the claim — ${e.message ?? e}` });
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-border bg-card p-4">
+      <div className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+        Request detention
+      </div>
+      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+        Made to wait past the free window? Payday runs the clock back, tells the
+        broker in writing with the arrival time stamped, escalates when they go
+        quiet, and files the claim.
+      </p>
+      <Button size="cab" className="mt-3" disabled={busy} onClick={go}>
+        <Clock className="size-4" />
+        {busy ? "Payday is starting the claim…" : "Get my waiting time paid"}
+      </Button>
+      {res && (
+        <div className={cn(
+          "mt-2.5 rounded-lg border px-3 py-2 text-[12px] leading-relaxed",
+          res.ok ? "border-border bg-muted/30 text-muted-foreground" : "border-bad/35 bg-bad/10 text-bad",
+        )}>
+          {res.text}
+        </div>
+      )}
+    </div>
   );
 }
 

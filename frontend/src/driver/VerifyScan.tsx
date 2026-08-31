@@ -28,7 +28,7 @@ export function VerifyScan({
   mc,
   loading,
   onDone,
-  stepMs = 340,
+  stepMs = 950,
 }: {
   broker: string;
   checks: Check[];
@@ -51,21 +51,16 @@ export function VerifyScan({
   const review = verdict === "REVIEW";
 
   // Nothing reveals until the real result is back — no pre-rolled theatre.
-  // A cleared broker moves the driver on by itself. A REFUSED one does not:
-  // this is the screen that proves the block was real — the federal record,
-  // the number that did not match, the memory it collided with — and it used to
-  // auto-close 1.3s after rendering, which is long enough to see that something
-  // happened and far too short to read what.
+  // And nothing auto-advances, in either direction: each check lands slowly
+  // enough to be read, and a cleared broker still waits for the driver to say
+  // "I want this load". Racing eight green lights past a human and then moving
+  // them on unasked made the check feel like an animation, not a decision.
   useEffect(() => {
     if (loading) { setShown(0); return; }
-    if (shown >= checks.length) {
-      if (blocked) return;
-      const t = setTimeout(() => onDone?.(false), 1300);
-      return () => clearTimeout(t);
-    }
+    if (shown >= checks.length) return;
     const t = setTimeout(() => setShown((n) => n + 1), stepMs);
     return () => clearTimeout(t);
-  }, [shown, checks.length, stepMs, loading, verdict, blocked]);
+  }, [shown, checks.length, stepMs, loading]);
 
   const done = !loading && shown >= checks.length;
 
@@ -166,10 +161,20 @@ export function VerifyScan({
                 : review ? "They check out, but their record has a catch worth knowing."
                 : "Real company. They pay. Go get it."}
             </div>
-            {blocked && (
+            {blocked ? (
               <Button size="cab" className="mt-4" onClick={() => onDone?.(true)}>
                 Back to the board
               </Button>
+            ) : (
+              <>
+                <Button size="cab" className="mt-4" onClick={() => onDone?.(false)}>
+                  I want this load — send the offer
+                </Button>
+                <Button variant="ghost" size="tap" className="mt-2 w-full"
+                  onClick={() => onDone?.(true)}>
+                  Pass on it
+                </Button>
+              </>
             )}
           </div>
         )}

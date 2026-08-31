@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Empty, Place, RunShell, useRun } from "@/driver/RunProvider";
 import { VerifyScan } from "@/driver/VerifyScan";
+import { OfferSent } from "@/views/TripTab";
 
 /** Find me a load, through the background check. The tab ends the moment a
  *  broker clears — from there the run belongs to Trip. */
@@ -17,9 +18,12 @@ function postedAgo(min?: number | null): string {
   return `posted ${Math.floor(min / 60)}h ago`;
 }
 
-export function LoadsTab() {
+/** `map` is the one difference between the two places this renders: the Loads
+ *  tab is the plain list, and Dispatch is the same work with the map behind it,
+ *  because there the truck's position is part of the answer. */
+export function LoadsTab({ map = false }: { map?: boolean }) {
   const {
-    screen, board, verifying, scan, gps, truck, onTrip, picked,
+    screen, board, verifying, scan, gps, truck, onTrip, picked, offer,
     hunt, openScan, finishVerify, setTab, reset,
   } = useRun();
 
@@ -29,7 +33,7 @@ export function LoadsTab() {
 
   return (
     <RunShell
-      map={false}
+      map={map}
       overlay={
         checking ? (
           <VerifyScan
@@ -58,8 +62,14 @@ export function LoadsTab() {
         <Loads board={board} onPick={openScan} />
       )}
 
+      {/* The board's own end state: the offer went out, and this is the
+          receipt — right where the driver already is. */}
+      {screen === "offer" && picked && (
+        <OfferSent load={picked} offer={offer} onDrop={reset} />
+      )}
+
       {/* You cannot shop for freight while you are hauling some. */}
-      {onTrip && picked && (
+      {onTrip && screen !== "offer" && picked && (
         <Empty
           title="You're already on a load."
           body={
@@ -196,6 +206,9 @@ function LoadCard({ l, selected, onSelect, onVerify, raw, setRaw }: {
       <div className="num mt-0.5 text-[13px] text-muted-foreground">
         {Math.round(l.miles)} miles · ${l.rpm.toFixed(2)} a mile after fuel
       </div>
+      {l.units && (
+        <div className="mt-1 text-[13px] text-muted-foreground">{l.units}</div>
+      )}
       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-muted-foreground">
         <span className="mono">{l.source ?? "board"}</span>
         <span>·</span>

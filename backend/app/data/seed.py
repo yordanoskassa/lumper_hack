@@ -83,6 +83,8 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
     "Grand Rapids MI": (42.9634, -85.6681), "St Louis MO": (38.6270, -90.1994),
     "Kansas City MO": (39.0997, -94.5786), "Des Moines IA": (41.5868, -93.6250),
     "Minneapolis MN": (44.9778, -93.2650), "Atlanta GA": (33.7490, -84.3880),
+    "Madison WI": (43.0731, -89.4012), "Rockford IL": (42.2711, -89.0940),
+    "Green Bay WI": (44.5133, -88.0133),
 }
 
 # PADD (fuel region) per state for EIA diesel lookups.
@@ -165,57 +167,65 @@ BROKERS: list[dict] = [
 # `cph`/`cem` are the contact phone/email printed on the posting; Verifier
 # cross-checks them against the registered contact for the claimed MC.
 BOARD: list[dict] = [
+    # Auto transport. `units` is what is actually on the deck — a demo board
+    # that says "Dry van" and then shows a car hauler is the first thing a
+    # judge stops believing.
+    #
     # --- the two postings carrying the REAL federal docket ---------------
     # P-90440 is honest: the contact phone on it is the number FMCSA has on
     # file for MC-222428, and the live SAFER retrieval confirms it.
-    {"id": "P-90440", "mc": "MC-222428", "o": "Joliet IL", "d": "Columbus OH", "mi": 356, "dh": 8, "rate": 810, "eq": "Dry van", "posted_min": 23, "src": "DAT",
+    {"id": "P-90440", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1080, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 23, "src": "DAT",
      "cph": "800-435-0940", "cem": "dispatch@anwebber.example.com"},
-    # P-90441 is the docket hijack: same real MC, 72% over the lane average,
+    # P-90441 is the docket hijack: same real MC, 71% over the lane average,
     # and the contact number is the shell ring's. Nothing on the posting says
     # so — only the federal copy does.
-    {"id": "P-90441", "mc": "MC-222428", "o": "Joliet IL", "d": "Columbus OH", "mi": 356, "dh": 8, "rate": 1395, "eq": "Dry van", "posted_min": 5, "src": "123LB",
+    {"id": "P-90441", "mc": "MC-222428", "o": "Madison WI", "d": "Indianapolis IN", "mi": 329, "dh": 118, "rate": 1850, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 5, "src": "123LB",
      "cph": "469-555-0177", "cem": "ops@apexfreightsol.example.net"},
-    {"id": "P-90412", "mc": "MC-880151", "o": "Chicago IL", "d": "Columbus OH", "mi": 342, "dh": 41, "rate": 875, "eq": "Dry van", "posted_min": 12, "src": "DAT",
+    # The clean short haul, from the broker that has paid 14 of 14.
+    {"id": "P-90412", "mc": "MC-880151", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 12, "src": "DAT",
      "cph": "312-555-0142", "cem": "dispatch@meridianlogistics.example.com"},
-    # the lookalike's bait: same lane, same MC on the posting, 66% over the
+    # the lookalike's bait: same lane, same MC on the posting, 90% over the
     # board rate — and a contact phone that is not Meridian's.
-    {"id": "P-90431", "mc": "MC-880151", "o": "Chicago IL", "d": "Columbus OH", "mi": 342, "dh": 41, "rate": 1450, "eq": "Dry van", "posted_min": 7, "src": "123LB",
+    {"id": "P-90431", "mc": "MC-880151", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 1180, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 7, "src": "123LB",
      "cph": "312-555-0198", "cem": "dispatch@meridian-logistics.example.com"},
-    {"id": "P-90418", "mc": "MC-1680087", "o": "Chicago IL", "d": "Memphis TN", "mi": 531, "dh": 63, "rate": 1725, "eq": "Reefer", "posted_min": 4, "src": "Truckstop",
-     "cph": "469-555-0177", "cem": "ops@apexfreightsol.example.net"},
-    {"id": "P-90402", "mc": "MC-500035", "o": "Joliet IL", "d": "Cincinnati OH", "mi": 298, "dh": 8, "rate": 635, "eq": "Dry van", "posted_min": 38, "src": "DAT",
-     "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
-    {"id": "P-90419", "mc": "MC-1590044", "o": "Chicago IL", "d": "Nashville TN", "mi": 471, "dh": 52, "rate": 1300, "eq": "Dry van", "posted_min": 6, "src": "123LB",
+    # Redline's ring, on the number the memory graph already knows.
+    {"id": "P-90419", "mc": "MC-1590044", "o": "Rockford IL", "d": "Nashville TN", "mi": 575, "dh": 88, "rate": 1350, "eq": "Hotshot compatible", "units": "1 operable SUV", "posted_min": 6, "src": "123LB",
      "cph": "469-555-0177", "cem": "billing@redline-brokerage.example.co"},
-    {"id": "P-90388", "mc": "MC-600253", "o": "Milwaukee WI", "d": "Indianapolis IN", "mi": 279, "dh": 96, "rate": 525, "eq": "Dry van", "posted_min": 47, "src": "DAT",
-     "cph": "414-555-0188", "cem": "loads@gltransfer.example.com"},
-    {"id": "P-90421", "mc": "MC-1710084", "o": "Chicago IL", "d": "Dallas TX", "mi": 967, "dh": 44, "rate": 2450, "eq": "Reefer", "posted_min": 3, "src": "123LB",
-     "cph": "972-555-0104", "cem": "dispatch@sunbeltfp.example.net"},
-    {"id": "P-90428", "mc": "MC-440058", "o": "Joliet IL", "d": "Indianapolis IN", "mi": 205, "dh": 8, "rate": 800, "eq": "Dry van", "posted_min": 16, "src": "DAT",
+    # The detention load: Cardinal Dispatch, who denied three claims because
+    # nobody ever sent them a timestamped arrival.
+    {"id": "P-90428", "mc": "MC-440058", "o": "Rockford IL", "d": "Des Moines IA", "mi": 330, "dh": 88, "rate": 1150, "eq": "Winch required", "units": "1 inoperable pickup", "posted_min": 16, "src": "DAT",
      "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
-    {"id": "P-90410", "mc": "MC-440058", "o": "Gary IN", "d": "Columbus OH", "mi": 316, "dh": 22, "rate": None, "eq": "Dry van", "posted_min": 19, "src": "Truckstop",
-     "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
-    {"id": "P-90412b", "mc": "MC-880151", "o": "Chicago IL", "d": "Columbus OH", "mi": 342, "dh": 41, "rate": 875, "eq": "Dry van", "posted_min": 14, "src": "Truckstop", "dup_of": "P-90412",
-     "cph": "312-555-0142", "cem": "dispatch@meridianlogistics.example.com"},
-    {"id": "P-90396", "mc": "MC-770008", "o": "Chicago IL", "d": "Pittsburgh PA", "mi": 461, "dh": 37, "rate": 825, "eq": "Dry van", "posted_min": 87, "src": "DAT",
-     "cph": "717-555-0193", "cem": "ops@keystoneload.example.com"},
-    {"id": "P-90424", "mc": "MC-500035", "o": "Joliet IL", "d": "Louisville KY", "mi": 297, "dh": 11, "rate": 725, "eq": "Dry van", "posted_min": 2, "src": "DAT",
+    {"id": "P-90418", "mc": "MC-1680087", "o": "Chicago IL", "d": "Memphis TN", "mi": 531, "dh": 63, "rate": 2350, "eq": "Enclosed hauler", "units": "1 operable exotic", "posted_min": 4, "src": "Truckstop",
+     "cph": "469-555-0177", "cem": "ops@apexfreightsol.example.net"},
+    {"id": "P-90402", "mc": "MC-500035", "o": "Chicago IL", "d": "Cincinnati OH", "mi": 298, "dh": 41, "rate": 640, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 38, "src": "DAT",
      "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
-    {"id": "P-90377", "mc": "MC-600253", "o": "Chicago IL", "d": "Denver CO", "mi": 1003, "dh": 29, "rate": 1750, "eq": "Dry van", "posted_min": 216, "src": "123LB",
+    {"id": "P-90388", "mc": "MC-600253", "o": "Milwaukee WI", "d": "Indianapolis IN", "mi": 279, "dh": 96, "rate": 525, "eq": "Open car hauler", "units": "1 operable sedan", "posted_min": 47, "src": "DAT",
      "cph": "414-555-0188", "cem": "loads@gltransfer.example.com"},
-    {"id": "P-90423", "mc": "MC-440058", "o": "Chicago IL", "d": "Toledo OH", "mi": 244, "dh": 31, "rate": 525, "eq": "Dry van", "posted_min": 5, "src": "Truckstop",
+    {"id": "P-90421", "mc": "MC-1710084", "o": "Chicago IL", "d": "Dallas TX", "mi": 967, "dh": 44, "rate": 3950, "eq": "7-car stinger", "units": "7 operable vehicles", "posted_min": 3, "src": "123LB",
+     "cph": "972-555-0104", "cem": "dispatch@sunbeltfp.example.net"},
+    {"id": "P-90410", "mc": "MC-440058", "o": "Green Bay WI", "d": "Columbus OH", "mi": 316, "dh": 204, "rate": None, "eq": "Winch required", "units": "1 inoperable van", "posted_min": 19, "src": "Truckstop",
+     "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
+    {"id": "P-90412b", "mc": "MC-880151", "o": "Chicago IL", "d": "Milwaukee WI", "mi": 92, "dh": 41, "rate": 620, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 14, "src": "Truckstop", "dup_of": "P-90412",
+     "cph": "312-555-0142", "cem": "dispatch@meridianlogistics.example.com"},
+    {"id": "P-90396", "mc": "MC-770008", "o": "Rockford IL", "d": "Pittsburgh PA", "mi": 461, "dh": 88, "rate": 900, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 87, "src": "DAT",
+     "cph": "717-555-0193", "cem": "ops@keystoneload.example.com"},
+    {"id": "P-90424", "mc": "MC-500035", "o": "Madison WI", "d": "Louisville KY", "mi": 430, "dh": 118, "rate": 780, "eq": "Open car hauler", "units": "2 operable sedans", "posted_min": 2, "src": "DAT",
+     "cph": "513-555-0166", "cem": "dispatch@ohiovalleylog.example.com"},
+    {"id": "P-90377", "mc": "MC-600253", "o": "Chicago IL", "d": "Denver CO", "mi": 1003, "dh": 29, "rate": 2100, "eq": "3-car wedge", "units": "3 operable vehicles", "posted_min": 216, "src": "123LB",
+     "cph": "414-555-0188", "cem": "loads@gltransfer.example.com"},
+    {"id": "P-90423", "mc": "MC-440058", "o": "Chicago IL", "d": "Toledo OH", "mi": 244, "dh": 41, "rate": 525, "eq": "Open car hauler", "units": "1 operable sedan", "posted_min": 5, "src": "Truckstop",
      "cph": "614-555-0121", "cem": "book@cardinaldispatch.example.com"},
 ]
 
 # 90-day average all-in linehaul $ per loaded mile ("BigQuery lane history").
 LANES: dict[str, float] = {
-    "Chicago IL→Columbus OH": 2.21, "Chicago IL→Memphis TN": 2.42,
-    "Joliet IL→Cincinnati OH": 2.09, "Chicago IL→Nashville TN": 2.15,
-    "Milwaukee WI→Indianapolis IN": 2.04, "Chicago IL→Dallas TX": 2.20,
-    "Gary IN→Columbus OH": 2.12, "Chicago IL→Pittsburgh PA": 2.06,
-    "Joliet IL→Louisville KY": 2.11, "Chicago IL→Denver CO": 1.85,
-    "Chicago IL→Toledo OH": 2.24, "Joliet IL→Indianapolis IN": 2.30,
-    "Joliet IL→Columbus OH": 2.18,
+    "Chicago IL→Milwaukee WI": 6.40, "Madison WI→Indianapolis IN": 3.21,
+    "Rockford IL→Nashville TN": 2.31, "Rockford IL→Des Moines IA": 2.90,
+    "Chicago IL→Memphis TN": 4.30, "Chicago IL→Cincinnati OH": 2.12,
+    "Milwaukee WI→Indianapolis IN": 2.04, "Chicago IL→Dallas TX": 4.05,
+    "Green Bay WI→Columbus OH": 2.60, "Rockford IL→Pittsburgh PA": 2.02,
+    "Madison WI→Louisville KY": 1.86, "Chicago IL→Denver CO": 2.15,
+    "Chicago IL→Toledo OH": 2.24,
 }
 
 # Episodic memory: what actually happened to THIS carrier. Verifier recalls by

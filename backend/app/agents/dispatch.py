@@ -273,12 +273,13 @@ class Dispatch(Agent):
                          "with somebody else's phone number on it")
         return await self.book_load(run_id, "P-90431")
 
-    async def scenario_detention(self, run_id: str) -> dict:
-        """Truck sits on a dock at Cardinal Dispatch — the broker that denied
-        three claims because nobody ever sent them a timestamped notice."""
-        self.say(run_id, "scenario: detention · truck stuck at the Indianapolis dock")
-        posting_id = "P-90428"
+    async def scenario_detention(self, run_id: str, posting_id: str = "P-90428") -> dict:
+        """Truck sits on a dock past the free window. Defaults to the seeded
+        Cardinal Dispatch load — the broker that denied three claims because
+        nobody ever sent them a timestamped notice — but runs against whichever
+        load the driver actually has on."""
         posting = await bank.get("board", posting_id) or {}
+        self.say(run_id, f"detention · truck stuck at the {posting.get('d', 'Indianapolis IN')} dock on {posting_id}")
         broker = await bank.get("brokers", posting.get("mc", "")) or {}
         from ..data.seed import coords_for_city
         dest = posting.get("d", "Indianapolis IN")

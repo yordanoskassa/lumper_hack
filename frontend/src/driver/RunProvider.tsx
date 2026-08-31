@@ -11,7 +11,15 @@ import { type DetentionState } from "./DetentionCard";
 import { type Check as ScanCheck } from "./VerifyScan";
 import { runScreen, type ScanResult } from "@/lib/screening";
 
-export type Screen = "home" | "hunting" | "loads" | "verify" | "trip" | "dock" | "pod" | "paid";
+export type Screen = "home" | "hunting" | "loads" | "verify" | "offer" | "trip" | "dock" | "pod" | "paid";
+
+/** The receipt for the one email that ends the booking flow. */
+export interface OfferReceipt {
+  to?: string;
+  broker?: string;
+  backend?: string;
+  detail?: string;
+}
 
 /** The three driver jobs the flow is split across. The whole app is the
  *  driver's, so these are tabs, not modes: find work, run the load, get paid. */
@@ -44,6 +52,7 @@ interface RunValue {
   gps: [number, number] | null;
   dockPos: [number, number] | null;
   det: DetentionState;
+  offer: OfferReceipt | null;
   podImg: string | null;
   err: string | null;
   mapFailed: boolean;
@@ -98,6 +107,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [gps, setGps] = useState<[number, number] | null>(null);
   const [det, setDet] = useState<DetentionState>({ active: false });
+  const [offer, setOffer] = useState<OfferReceipt | null>(null);
   const [podImg, setPodImg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
@@ -183,12 +193,19 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
     setScan(r);
   }
 
-  /** A blocked broker drops the driver back on the board; a cleared one becomes
-   *  the run, which carries them to the Trip tab. */
+  /** A blocked broker — or a pass — drops the driver back on the board. Wanting
+   *  the load sends the broker one "we'll take it" email through Closer, and
+   *  the flow STOPS there: no auto-run, no dock button until a human says the
+   *  broker came back. */
   function finishVerify(blocked: boolean) {
     setScan(null);
-    if (blocked) { setVerifying(null); setScreen("loads"); return; }
-    setPicked(verifying); setVerifying(null); setScreen("trip");
+    const l = verifying;
+    if (blocked || !l) { setVerifying(null); setScreen("loads"); return; }
+    setPicked(l); setVerifying(null); setOffer(null); setScreen("offer");
+    say(`We'll take ${l.origin} → ${l.dest} — tell ${l.broker}`);
+    api.interest(l.id)
+      .then(setOffer)
+      .catch((e: any) => setErr(`The offer email didn't go — ${e.message ?? e}`));
   }
 
   async function arrive() {
@@ -221,10 +238,10 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
 
   function reset() {
     setPicked(null); setPodImg(null); setDet({ active: false });
-    setDockPos(null); setScreen("home");
+    setOffer(null); setDockPos(null); setScreen("home");
   }
 
-  const onTrip = screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
+  const onTrip = screen === "offer" || screen === "trip" || screen === "dock" || screen === "pod" || screen === "paid";
 
   const pins = useMemo<Pin[]>(() => {
     const out: Pin[] = [{
@@ -274,7 +291,7 @@ export function RunProvider({ children, trace }: { children: ReactNode; trace?: 
   }, [screen, board, picked, here, onTrip]);
 
   const value: RunValue = {
-    screen, board, picked, verifying, scan, gps, dockPos, det, podImg, err, mapFailed, trace,
+    screen, board, picked, verifying, scan, gps, dockPos, det, offer, podImg, err, mapFailed, trace,
     announce,
     truck, here, pins, routes, focus, onTrip, activeTab: tab,
     hunt, openScan, finishVerify, arrive, takePaperwork, setPodImg, sendPod, reset,

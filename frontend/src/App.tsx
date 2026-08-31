@@ -111,7 +111,7 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
   // had, a CTA calling setTab() with the value it already held changed nothing,
   // so the view was stuck for good. `section` only tracks whether we are in the
   // run at all; which run tab shows is read straight from the context.
-  const { activeTab, setTab } = useRun();
+  const { activeTab, setTab, screen } = useRun();
   const [section, setSection] = useState<"run" | "money" | "dispatch" | "desk" | "fleet" | "registry">("run");
   // The run's own tab still drives Loads vs Paperwork; "trip" and "dock" have
   // no tab of their own any more — they play out in the agent thread.
@@ -126,6 +126,18 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
       setSection(key as "money" | "dispatch" | "desk" | "fleet" | "registry");
     }
   }
+  // Asking for a load hands the job to the fleet, so the driver should be
+  // watching the fleet do it — not left on a static list while the work happens
+  // somewhere they cannot see. The search, the screening and the offer all play
+  // out in Dispatch.
+  useEffect(() => {
+    if (screen === "hunting" || screen === "verify") setSection("dispatch");
+  }, [screen]);
+
+  // Everything up to and including the offer email is Dispatch's half of the run.
+  const finding = screen === "home" || screen === "hunting" || screen === "loads"
+    || screen === "verify" || screen === "offer";
+
   const [tenant, setTenant] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
   // Docked open. The agents are the product; hiding them behind a bubble
@@ -283,7 +295,13 @@ function Shell({ trace, connected, deskFromStream, chatFeed }: {
             {/* Dispatch is the map plus the agent: the run happens here, and
                 where the truck is IS the content. Loads is the list and has no
                 map. Rendering LoadsTab here made the two tabs identical. */}
-            {view === "dispatch" ? <TripTab /> : body}
+            {/* Dispatch is where the agents work, so it owns the whole first
+                half of the run — the search, the background check and the
+                offer — with the map behind it. Once a load is on, it becomes
+                the trip. Loads stays the plain list, and never the same screen. */}
+            {view === "dispatch"
+              ? (finding ? <LoadsTab map /> : <TripTab />)
+              : body}
           </div>
 
           {view === "dispatch" && (

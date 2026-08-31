@@ -1,19 +1,22 @@
 import type { ReactNode } from "react";
 import type { DriverLoad } from "@/api";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DetentionCard } from "@/driver/DetentionCard";
 import { haversineMi } from "@/driver/geo";
 import { FuelCard } from "@/driver/FuelCard";
-import { Empty, RunShell, useRun } from "@/driver/RunProvider";
+import { Empty, RunShell, useRun, type OfferReceipt } from "@/driver/RunProvider";
 
 /** The run itself: the route, the arrival timestamp, and the clock that turns a
  *  four-hour wait into money. */
 export function TripTab() {
-  const { screen, picked, here, det, hunt, arrive, takePaperwork, setTab, reset } = useRun();
+  const { screen, picked, here, det, offer, hunt, arrive, takePaperwork, setTab, reset } = useRun();
 
   // One branch always wins, so this tab can never render an empty column.
   let body: ReactNode;
-  if (picked && screen === "trip") {
+  if (picked && screen === "offer") {
+    body = <OfferSent load={picked} offer={offer} onDrop={reset} />;
+  } else if (picked && screen === "trip") {
     body = <Trip load={picked} here={here} onArrive={arrive} onDrop={reset} />;
   } else if (picked && screen === "dock") {
     body = (
@@ -49,6 +52,54 @@ export function TripTab() {
   }
 
   return <RunShell>{body}</RunShell>;
+}
+
+/** Where the booking flow ENDS. One email went to the broker — we'll take it —
+ *  and nothing else happens until a human reads the reply. Shown in Loads and
+ *  in Dispatch, so wherever the driver is, the receipt is. */
+export function OfferSent({ load, offer, onDrop }: {
+  load: DriverLoad; offer: OfferReceipt | null; onDrop?: () => void;
+}) {
+  const live = offer?.backend === "live";
+  return (
+    <>
+      <div className="text-[11px] font-semibold tracking-[0.1em] text-ok uppercase">Offer sent</div>
+      <h1 className="mt-0.5 text-2xl font-semibold tracking-[-0.035em]">
+        {load.origin} → {load.dest}
+      </h1>
+      <div className="num mt-2 text-[15px] text-muted-foreground">
+        ${load.rate.toLocaleString()} · {load.broker}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3.5">
+        {offer ? (
+          <>
+            <div className="text-[13.5px] font-medium">
+              Closer emailed {offer.to ?? load.broker}: we'll take it.
+            </div>
+            <div className={cn("mono mt-1.5 text-[11px]", live ? "text-ok" : "text-muted-foreground")}>
+              {live ? "DELIVERED" : "HELD IN OUTBOX"} · {offer.detail}
+            </div>
+          </>
+        ) : (
+          <div className="text-[13.5px] text-muted-foreground">
+            Closer is writing to {load.broker}…
+          </div>
+        )}
+        <p className="mt-2.5 text-[13px] leading-relaxed text-muted-foreground">
+          That's the whole job for now. When they come back with the rate con,
+          hand it to Payday in Paperwork — every document you upload there does
+          its own next step.
+        </p>
+      </div>
+
+      {onDrop && (
+        <Button variant="ghost" size="tap" className="mt-3 w-full" onClick={onDrop}>
+          Not taking this one
+        </Button>
+      )}
+    </>
+  );
 }
 
 function Trip({ load, here, onArrive, onDrop }: {

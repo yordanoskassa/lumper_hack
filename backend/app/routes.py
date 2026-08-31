@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import StreamingResponse
@@ -232,7 +233,7 @@ async def document(body: dict = Body(...)):
     filename = (body.get("filename") or "document").strip()
 
     tenant_doc = await bank.get("settings", "tenant") or {}
-    broker_email, broker_name, lane = None, None, ""
+    broker_email, broker_name, lane, picked_rate = None, None, "", None
     if posting_id:
         from .tools.loadboards import adapter
         for p in await adapter().search((tenant_doc.get("truck") or {}).get("city", "")):
@@ -240,6 +241,7 @@ async def document(body: dict = Body(...)):
                 b = await bank.get("brokers", p["mc"]) or {}
                 broker_email, broker_name = b.get("email"), b.get("name")
                 lane = f"{p['o']} → {p['d']}"
+                picked_rate = p.get("rate")
                 break
 
     # What the paper is decides who needs it. A signed bill and a detention
@@ -267,12 +269,54 @@ async def document(body: dict = Body(...)):
             + "Sent by Lumper Backstop on behalf of "
             + f"{tenant_doc.get('name', 'the carrier')}.")
 
+    from .tools import docs as doc_tool
     from .tools import mail as mail_tool
     run_id = runs.new_run_id()
+
+    # Paperwork that proves work was done is worth money, so the agent raises
+    # the invoice off it rather than leaving the driver to do it later. A POD is
+    # the linehaul; detention evidence is the accessorial.
+    invoice = None
+    if routed_as in ("Proof of delivery", "Detention evidence"):
+        rate = float((picked_rate or 0))
+        det_doc = await bank.get("detention", "current") or {}
+        owed = float(det_doc.get("owed") or 0) if det_doc.get("posting_id") == posting_id else 0.0
+        lines = []
+        if rate:
+            lines.append((f"Linehaul — {lane or posting_id}", rate))
+        if owed:
+            mins = int(det_doc.get("billable_minutes") or 0)
+            lines.append((f"Detention — {mins // 60}h {mins % 60:02d}m at "
+                          f"${float(det_doc.get('rate_per_hour') or 0):.0f}/hr", owed))
+        if lines:
+            total = round(sum(a for _, a in lines), 2)
+            inv = {
+                "number": f"INV-{posting_id or 'TRIP'}",
+                "date": time.strftime("%Y-%m-%d"),
+                "carrier": tenant_doc.get("name", "K&M Hauling"),
+                "carrier_lines": [f"{(tenant_doc.get('truck') or {}).get('city', '')}",
+                                  tenant_doc.get("email", "")],
+                "broker": broker_name or who,
+                "lines": lines, "total": total,
+                "notes": (["Arrival and departure GPS-stamped at the delivery point."]
+                          if owed else []),
+            }
+            made = await doc_tool.invoice_pdf(invoice=inv)
+            invoice = {"number": inv["number"], "total": total,
+                       "filename": made.value["filename"]}
+            subject = f"Invoice {inv['number']} — ${total:,.2f}"
+            text = (f"{routed_as} attached, and the invoice with it.\n\n"
+                    + "\n".join(f"  {l}  ${a:,.2f}" for l, a in lines)
+                    + f"\n  TOTAL  ${total:,.2f}\n\n"
+                    + (note + "\n\n" if note else "")
+                    + "Raised by Lumper Backstop on behalf of "
+                    + f"{tenant_doc.get('name', 'the carrier')}.")
+            filename = made.value["filename"]
+
     res = await mail_tool.send(run_id, to=to, subject=subject, body=text,
                                attachment=filename, kind=kind)
     return {"run_id": run_id, "routed_as": routed_as, "to": who,
-            "backend": res.backend, "detail": res.detail}
+            "invoice": invoice, "backend": res.backend, "detail": res.detail}
 
 
 
@@ -476,6 +520,58 @@ async def book(body: dict = Body(...)):
     return {"run_id": run_id, "started": True}
 
 
+@router.post("/interest")
+async def interest(body: dict = Body(...)):
+    """The driver wants a load. Closer emails the broker one line — we'll take
+    it at the posted rate — and then the flow STOPS. No negotiation loop, no
+    auto-run trip: the next thing that happens is a human reading the reply."""
+    posting_id = _need(body, "posting_id")
+    posting = await bank.get("board", posting_id)
+    if not posting:
+        raise HTTPException(404, f"no posting {posting_id} on the board")
+    broker = await bank.get("brokers", posting.get("mc", "")) or {}
+    tenant_doc = await bank.get("settings", "tenant") or {}
+    carrier = tenant_doc.get("name", "the carrier")
+    lane = f"{posting['o']} → {posting['d']}"
+    rate = posting.get("rate")
+    rate_txt = f"${rate:,}" if rate else "your posted rate"
+    run_id = runs.new_run_id()
+    hub.emit(TraceEvent(
+        run_id=run_id, agent="Closer", kind="step", tone="ok",
+        msg=f"driver wants {posting_id} · telling "
+            f"{broker.get('name', posting.get('mc', 'the broker'))} "
+            f"we'll take {lane} at {rate_txt}"))
+    from .tools import mail as mail_tool
+    res = await mail_tool.send(
+        run_id,
+        to=broker.get("email", "dispatch@broker.example"),
+        subject=f"{lane} ({posting_id}) — we'll take it at {rate_txt}",
+        body=(f"We'd like this load.\n\n"
+              f"  Lane: {lane}\n"
+              f"  Equipment: {posting.get('eq', 'Dry van')}\n"
+              f"  Rate: {rate_txt}\n"
+              f"  Truck: ready at {posting['o']}\n\n"
+              f"Reply with the rate confirmation and we're rolling.\n\n"
+              f"Sent by Lumper Backstop on behalf of {carrier}."),
+        kind="offer")
+    return {"run_id": run_id, "to": (res.value or {}).get("to"),
+            "broker": broker.get("name", posting.get("mc")),
+            "backend": res.backend, "detail": res.detail}
+
+
+@router.post("/detention/request")
+async def detention_request(body: dict = Body(...)):
+    """The driver asks for their waiting time. Payday runs the whole fight in
+    the background — the GPS-stamped clock, the timestamped notice at the
+    free-window boundary, the escalation, the filed claim — and every message
+    lands in the outbox, live or held."""
+    posting_id = (body.get("posting_id") or "").strip() or "P-90428"
+    run = await runs.create("detention", {"posting_id": posting_id})
+    run_id = run["run_id"]
+    runs.launch(run_id, dispatch().scenario_detention(run_id, posting_id))
+    return {"run_id": run_id, "started": True, "posting_id": posting_id}
+
+
 @router.post("/refuse")
 async def refuse(body: dict = Body(...)):
     run_id = body.get("run_id") or runs.new_run_id()
@@ -535,6 +631,9 @@ async def loads():
             "rate": p["rate"], "miles": m["miles"], "rpm": m["rpm"],
             "net": m["net"], "deadhead": m["deadhead"], "eq": p.get("eq", "Dry van"),
             "drive_h": m["drive_h"], "lane_avg": round(m["lane_avg"], 2),
+            # What is actually on the deck. A card that prices a load without
+            # saying what it is asks the driver to guess whether their trailer fits.
+            "units": p.get("units"),
             # Where this posting came from and how stale it is. A load with no
             # provenance is a load you are asked to take on faith.
             "source": p.get("src"), "posted_min": p.get("posted_min"),

@@ -27,7 +27,9 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
   --project "$PROJECT"
 
 # Secrets travel as env vars set at deploy time, never baked into the image.
-# MAIL_LIVE stays false: these agents draft and send on their own initiative.
+# Mail travels from your shell. MAIL_LIVE defaults to false; turning it on
+# still requires a Resend key AND the recipient domain on the allowlist,
+# and reserved sandbox domains are refused even then.
 gcloud run deploy "$SERVICE" \
   --source backend \
   --project "$PROJECT" \
@@ -35,7 +37,8 @@ gcloud run deploy "$SERVICE" \
   --allow-unauthenticated \
   --memory 1Gi \
   --timeout 900 \
-  --set-env-vars "GEMINI_MODEL=gemini-3.5-flash,LOADBOARD_ADAPTER=sandbox,MAIL_LIVE=false" \
+  --set-env-vars "GEMINI_MODEL=gemini-3.5-flash,LOADBOARD_ADAPTER=sandbox" \
+  --set-env-vars "^@^MAIL_LIVE=${MAIL_LIVE:-false}@MAIL_LIVE_ALLOWLIST=${MAIL_LIVE_ALLOWLIST:-}@RESEND_FROM=${RESEND_FROM:-}@RESEND_REPLY_TO=${RESEND_REPLY_TO:-}@RESEND_API_KEY=${RESEND_API_KEY:-}@DEMO_BROKER_EMAIL=${DEMO_BROKER_EMAIL:-}" \
   --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY:?set GEMINI_API_KEY in your shell}" \
   --set-env-vars "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" \
   --set-env-vars "MONGO_URI=${MONGO_URI:-}"
